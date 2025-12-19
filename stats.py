@@ -15,11 +15,17 @@ ELO System:
 import json
 import os
 import glob
+import re
 from datetime import datetime
 
 # ELO Parameters
 STARTING_ELO = 1000
 BASE_K_FACTOR = 32
+
+
+def safe_div(num: float, denom: float, default=None) -> float | None:
+    """Safely divide, returning default if denominator is 0."""
+    return num / denom if denom else default
 
 
 def expected_score(team_elo: float, opponent_elo: float) -> float:
@@ -74,6 +80,8 @@ def initialize_player_stats() -> dict:
 
         # Survival stats
         "games_survived": 0,
+        "impostor_survived": 0,
+        "crew_survived": 0,
         "total_days_survived": 0,
         "times_voted_out": 0,
         "times_killed": 0,
@@ -88,7 +96,7 @@ def initialize_player_stats() -> dict:
     }
 
 
-def get_player_role(game: dict, player_name: str) -> str:
+def get_player_role(game: dict, player_name: str) -> str | None:
     """Get the role of a player in a game."""
     for player in game["players"]:
         if player["name"] == player_name:
@@ -185,6 +193,10 @@ def process_game(game: dict, players: dict[str, dict]) -> None:
         if elim_info is None:
             stats["games_survived"] += 1
             stats["total_days_survived"] += total_days
+            if role == "impostor":
+                stats["impostor_survived"] += 1
+            else:
+                stats["crew_survived"] += 1
         else:
             elim_day, elim_type = elim_info
             stats["total_days_survived"] += elim_day
@@ -223,46 +235,51 @@ def calculate_derived_stats(players: dict[str, dict]) -> dict[str, dict]:
     results = {}
 
     for name, stats in players.items():
+        games = stats["games_played"]
+        imp_games = stats["impostor_games"]
+        crew_games = stats["crew_games"]
+        days_spoken = stats["total_days_survived"] - stats["times_killed"]
+
         result = {
             # ELO ratings
             "impostor_elo": round(stats["impostor_elo"]),
             "crew_elo": round(stats["crew_elo"]),
-
-            # Overall ELO (weighted average)
             "overall_elo": None,
 
             # Game counts
-            "games_played": stats["games_played"],
+            "games_played": games,
             "wins": stats["wins"],
             "losses": stats["losses"],
-            "win_rate": stats["wins"] / stats["games_played"] if stats["games_played"] > 0 else 0,
+            "win_rate": safe_div(stats["wins"], games, 0),
 
             # Role breakdown
-            "impostor_games": stats["impostor_games"],
+            "impostor_games": imp_games,
             "impostor_wins": stats["impostor_wins"],
-            "impostor_win_rate": stats["impostor_wins"] / stats["impostor_games"] if stats["impostor_games"] > 0 else None,
-            "crew_games": stats["crew_games"],
+            "impostor_win_rate": safe_div(stats["impostor_wins"], imp_games),
+            "crew_games": crew_games,
             "crew_wins": stats["crew_wins"],
-            "crew_win_rate": stats["crew_wins"] / stats["crew_games"] if stats["crew_games"] > 0 else None,
+            "crew_win_rate": safe_div(stats["crew_wins"], crew_games),
 
             # Survival stats
-            "survival_rate": stats["games_survived"] / stats["games_played"] if stats["games_played"] > 0 else 0,
-            "avg_days_survived": stats["total_days_survived"] / stats["games_played"] if stats["games_played"] > 0 else 0,
+            "survival_rate": safe_div(stats["games_survived"], games, 0),
+            "impostor_survival_rate": safe_div(stats["impostor_survived"], imp_games),
+            "crew_survival_rate": safe_div(stats["crew_survived"], crew_games),
+            "avg_days_survived": safe_div(stats["total_days_survived"], games, 0),
             "times_voted_out": stats["times_voted_out"],
             "times_killed": stats["times_killed"],
 
             # Voting accuracy
             "votes_cast_as_crew": stats["votes_cast_as_crew"],
             "votes_for_impostors": stats["votes_for_impostors"],
-            "voting_accuracy": stats["votes_for_impostors"] / stats["votes_cast_as_crew"] if stats["votes_cast_as_crew"] > 0 else None,
+            "voting_accuracy": safe_div(stats["votes_for_impostors"], stats["votes_cast_as_crew"]),
 
             # Vote reception
             "times_received_votes": stats["times_received_votes"],
-            "avg_votes_against_per_game": stats["times_received_votes"] / stats["games_played"] if stats["games_played"] > 0 else 0,
+            "avg_votes_against_per_game": safe_div(stats["times_received_votes"], games, 0),
 
             # Activity
             "total_messages": stats["total_messages"],
-            "avg_messages_per_game": stats["total_messages"] / stats["games_played"] if stats["games_played"] > 0 else 0,
+            "avg_messages_per_day": safe_div(stats["total_messages"], days_spoken, 0),
         }
 
         # Calculate overall ELO (weighted average by games in each role)
@@ -281,8 +298,33 @@ def calculate_derived_stats(players: dict[str, dict]) -> dict[str, dict]:
     return results
 
 
-def print_rankings(stats: dict[str, dict], games_analyzed: int) -> None:
-    """Print formatted rankings table to terminal."""
+class Colors:
+    CYAN = '\033[96m'
+    GREEN = '\033[92m'
+    RED = '\033[91m'
+    YELLOW = '\033[93m'
+    BOLD = '\033[1m'
+    RESET = '\033[0m'
+
+
+def visual_len(s: str) -> int:
+    """Get visual length of string, excluding ANSI escape codes."""
+    return len(re.sub(r'\033\[[0-9;]*m', '', s))
+
+
+def pad_right(s: str, width: int) -> str:
+    """Pad string to width based on visual length."""
+    return s + ' ' * (width - visual_len(s))
+
+
+def format_with_roles(total: str, imp: str, crew: str, total_width: int, col_width: int) -> str:
+    """Format as 'total (imp/crew)' with total padded to align parens, then whole thing padded to col_width."""
+    inner = f"{total:<{total_width}} ({Colors.RED}{imp}{Colors.RESET}/{Colors.GREEN}{crew}{Colors.RESET})"
+    return pad_right(inner, col_width)
+
+
+def print_rankings(stats: dict[str, dict], games_analyzed: int) -> list[dict]:
+    """Print formatted rankings table to terminal and return rankings data for JSON."""
     # Sort by overall ELO (descending), then by impostor ELO
     sorted_players = sorted(
         stats.items(),
@@ -290,81 +332,111 @@ def print_rankings(stats: dict[str, dict], games_analyzed: int) -> None:
         reverse=True
     )
 
-    # Header
     print()
-    print("=" * 95)
-    print(f"{'LLM SOCIAL DEDUCTION RANKINGS':^95}")
-    print(f"{'Games Analyzed: ' + str(games_analyzed):^95}")
-    print("=" * 95)
+    print(f"    {Colors.CYAN}{Colors.BOLD}Rankings{Colors.RESET} {Colors.CYAN}({games_analyzed} games){Colors.RESET}")
+    print(f"    ({Colors.RED}impostor{Colors.RESET}/{Colors.GREEN}crew{Colors.RESET})")
     print()
 
-    # Rankings table
-    header = f"{'Rank':<5} {'Player':<25} {'Overall':>8} {'Imp ELO':>8} {'Crew ELO':>9} {'Win%':>6} {'Games':>12}"
-    print(header)
-    print("-" * 95)
+    # Header with compact format - ELO/Won/Games/Survived show (imp/crew) inline
+    print(f"    {Colors.CYAN}{'#':<3} {'LLM':<24} {'ELO':<18} {'Won':<20} {'Games':<12} {'Survived':<20} {'Sacrificed':<11} {'Killed':<8} {'Accuracy':<9} {'Messages':<9}{Colors.RESET}")
+    print(f"    {'─' * 143}")
+
+    rankings = []
 
     for rank, (name, player_stats) in enumerate(sorted_players, 1):
+        total_games = player_stats['games_played']
+        imp_games = player_stats['impostor_games']
+        crew_games = player_stats['crew_games']
+
+        # Basic stats - total_width=2 for games count, col_width=12
+        games = format_with_roles(
+            str(total_games),
+            str(imp_games),
+            str(crew_games),
+            2, 12
+        )
+
+        # Overall stats
         overall = str(player_stats["overall_elo"]) if player_stats["overall_elo"] else "-"
-        imp_elo = str(player_stats["impostor_elo"]) if player_stats["impostor_games"] > 0 else "-"
-        crew_elo = str(player_stats["crew_elo"]) if player_stats["crew_games"] > 0 else "-"
         win_pct = f"{player_stats['win_rate']*100:.0f}%"
-        games = f"{player_stats['games_played']} ({player_stats['impostor_games']}I/{player_stats['crew_games']}C)"
+        survived = f"{player_stats['survival_rate']*100:.0f}%"
 
-        print(f"{rank:<5} {name:<25} {overall:>8} {imp_elo:>8} {crew_elo:>9} {win_pct:>6} {games:>12}")
+        # Impostor stats
+        imp_elo = str(player_stats["impostor_elo"]) if imp_games > 0 else "-"
+        imp_wr = f"{player_stats['impostor_win_rate']*100:.0f}%" if player_stats['impostor_win_rate'] is not None else "-"
+        imp_surv = f"{player_stats['impostor_survival_rate']*100:.0f}%" if player_stats['impostor_survival_rate'] is not None else "-"
 
-    print("-" * 95)
+        # Crew stats
+        crew_elo = str(player_stats["crew_elo"]) if crew_games > 0 else "-"
+        crew_wr = f"{player_stats['crew_win_rate']*100:.0f}%" if player_stats['crew_win_rate'] is not None else "-"
+        crew_surv = f"{player_stats['crew_survival_rate']*100:.0f}%" if player_stats['crew_survival_rate'] is not None else "-"
+
+        # Format combined columns with role breakdown
+        # total_width: 4 for ELO (4 digits), 4 for percentages (100%)
+        elo_col = format_with_roles(overall, imp_elo, crew_elo, 4, 18)
+        won_col = format_with_roles(win_pct, imp_wr, crew_wr, 4, 20)
+        surv_col = format_with_roles(survived, imp_surv, crew_surv, 4, 20)
+
+        # Other stats
+        sacrificed_pct = player_stats['times_voted_out'] / total_games if total_games > 0 else None
+        killed_pct = player_stats['times_killed'] / total_games if crew_games > 0 else None
+        accuracy = player_stats['voting_accuracy']
+        messages = round(player_stats['avg_messages_per_day'], 1)
+
+        # Display formatting
+        voted_out_str = f"{sacrificed_pct*100:.0f}%" if sacrificed_pct is not None else "-"
+        killed_str = f"{killed_pct*100:.0f}%" if killed_pct is not None else "-"
+        vote_acc_str = f"{accuracy*100:.0f}%" if accuracy is not None else "-"
+        msg_per_day_str = f"{messages:.1f}"
+
+        print(f"    {rank:<3} {name:<24} {elo_col} {won_col} {games} {surv_col} {voted_out_str:<11} {killed_str:<8} {vote_acc_str:<9} {msg_per_day_str:<9}")
+
+        # Build JSON data (mirrors console output)
+        rankings.append({
+            "rank": rank,
+            "llm": name,
+            "elo": {
+                "overall": player_stats["overall_elo"],
+                "impostor": player_stats["impostor_elo"] if imp_games > 0 else None,
+                "crew": player_stats["crew_elo"] if crew_games > 0 else None
+            },
+            "won": {
+                "overall": round(player_stats['win_rate'], 2),
+                "impostor": round(player_stats['impostor_win_rate'], 2) if player_stats['impostor_win_rate'] is not None else None,
+                "crew": round(player_stats['crew_win_rate'], 2) if player_stats['crew_win_rate'] is not None else None
+            },
+            "games": {
+                "total": total_games,
+                "impostor": imp_games,
+                "crew": crew_games
+            },
+            "survived": {
+                "overall": round(player_stats['survival_rate'], 2),
+                "impostor": round(player_stats['impostor_survival_rate'], 2) if player_stats['impostor_survival_rate'] is not None else None,
+                "crew": round(player_stats['crew_survival_rate'], 2) if player_stats['crew_survival_rate'] is not None else None
+            },
+            "sacrificed": round(sacrificed_pct, 2) if sacrificed_pct is not None else None,
+            "killed": round(killed_pct, 2) if killed_pct is not None else None,
+            "accuracy": round(accuracy, 2) if accuracy is not None else None,
+            "messages": messages
+        })
+
     print()
-
-    # Detailed stats for each player
-    print("=" * 95)
-    print(f"{'DETAILED PLAYER STATISTICS':^95}")
-    print("=" * 95)
-
-    for name, player_stats in sorted_players:
-        print()
-        print(f"┌{'─' * 93}┐")
-        print(f"│ {name:<92}│")
-        print(f"├{'─' * 93}┤")
-
-        # Role stats
-        imp_wr = f"{player_stats['impostor_win_rate']*100:.0f}%" if player_stats['impostor_win_rate'] is not None else "N/A"
-        crew_wr = f"{player_stats['crew_win_rate']*100:.0f}%" if player_stats['crew_win_rate'] is not None else "N/A"
-        imp_elo_display = player_stats['impostor_elo'] if player_stats['impostor_games'] > 0 else "N/A"
-        crew_elo_display = player_stats['crew_elo'] if player_stats['crew_games'] > 0 else "N/A"
-
-        line1 = f"│ Impostor: {player_stats['impostor_games']} games, {imp_wr} win rate, ELO {imp_elo_display}"
-        print(f"{line1:<94}│")
-
-        line2 = f"│ Crew: {player_stats['crew_games']} games, {crew_wr} win rate, ELO {crew_elo_display}"
-        print(f"{line2:<94}│")
-
-        # Survival and voting
-        surv = f"{player_stats['survival_rate']*100:.0f}%"
-        vote_acc = f"{player_stats['voting_accuracy']*100:.0f}%" if player_stats['voting_accuracy'] is not None else "N/A"
-
-        line3 = f"│ Survival: {surv} | Avg days: {player_stats['avg_days_survived']:.1f} | Voted out: {player_stats['times_voted_out']} | Killed: {player_stats['times_killed']}"
-        print(f"{line3:<94}│")
-
-        line4 = f"│ Voting accuracy (as crew): {vote_acc} | Messages/game: {player_stats['avg_messages_per_game']:.1f} | Votes against: {player_stats['times_received_votes']}"
-        print(f"{line4:<94}│")
-
-        print(f"└{'─' * 93}┘")
-
-    print()
+    return rankings
 
 
-def save_json(stats: dict[str, dict], games_analyzed: int, output_path: str = "stats.json") -> None:
-    """Save statistics to JSON file."""
+def save_json(rankings: list[dict], games_analyzed: int, output_path: str = "stats.json") -> None:
+    """Save statistics to JSON file (mirrors console output)."""
     output = {
         "generated_at": datetime.now().isoformat(),
         "games_analyzed": games_analyzed,
-        "players": stats
+        "rankings": rankings
     }
 
     with open(output_path, "w") as f:
         json.dump(output, f, indent=2)
 
-    print(f"Stats saved to {output_path}")
+    print(f"{Colors.YELLOW}Stats saved to {output_path}{Colors.RESET}")
 
 
 def main():
@@ -376,7 +448,7 @@ def main():
         print("No completed games found in games/ directory")
         return
 
-    print(f"Found {len(games)} completed games")
+    print(f"{Colors.YELLOW}Found {len(games)} completed games{Colors.RESET}")
 
     # Initialize player tracking
     players = {}
@@ -389,8 +461,8 @@ def main():
     stats = calculate_derived_stats(players)
 
     # Output results
-    print_rankings(stats, len(games))
-    save_json(stats, len(games))
+    rankings = print_rankings(stats, len(games))
+    save_json(rankings, len(games))
 
 
 if __name__ == "__main__":

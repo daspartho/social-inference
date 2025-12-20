@@ -378,8 +378,8 @@ def print_rankings(stats: dict[str, dict], games_analyzed: int) -> list[dict]:
         surv_col = format_with_roles(survived, imp_surv, crew_surv, 4, 20)
 
         # Other stats
-        sacrificed_pct = player_stats['times_voted_out'] / total_games if total_games > 0 else None
-        killed_pct = player_stats['times_killed'] / total_games if crew_games > 0 else None
+        sacrificed_pct = safe_div(player_stats['times_voted_out'], total_games)
+        killed_pct = safe_div(player_stats['times_killed'], crew_games)
         accuracy = player_stats['voting_accuracy']
         messages = round(player_stats['avg_messages_per_day'], 1)
 

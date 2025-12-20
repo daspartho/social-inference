@@ -106,7 +106,7 @@ class Player:
     def __init__(self, name: str, model: str, role: str, color: str = ""):
         self.name = name
         self.model = model
-        self.role = role  # "impostor" or "crewmate"
+        self.role = role  # "impostor", "detective", "doctor", or "crewmate"
         self.alive = True
         self.color = color
 
@@ -129,7 +129,7 @@ def get_system_prompt(player: Player, players: list[Player], impostors: list[Pla
     # Exclude self from "others" list to avoid confusion
     other_names = [p.name for p in players if p.alive and p.name != player.name]
 
-    base = f"""You ARE {player.name}. Speak as yourself. You're part of a group with 2 impostors hidden among you.
+    base = f"""You ARE {player.name}. Speak as yourself. You're part of a group with 2 impostors hidden among you. The crew includes a detective who investigates one person each night, and a doctor who examines the sacrificed body each night. Both learn if their target was an impostor.
 
 The others: {', '.join(other_names)}
 
@@ -149,6 +149,10 @@ Don't introduce yourself. Don't be meta. Just talk naturally.
             base += f"\nYou are secretly an IMPOSTOR. Your partner {', '.join(dead_partners)} is dead. You're alone now. Don't die."
     else:
         base += "\nYou are CREW. Find the impostors. Don't die."
+        if player.role == "detective":
+            base += "\nYou are also the DETECTIVE - before you sleep each night, you choose someone to investigate. When you wake up, you learn if they're an impostor."
+        elif player.role == "doctor":
+            base += "\nYou are also the DOCTOR - each night you examine the sacrificed body. When you wake up, you learn if they were an impostor."
 
     base += "\n\nKeep it short and natural. 2-3 sentences max. Say /pass to stay silent. Say /ask [name] to interrupt and confront someone directly."
     return base
@@ -186,7 +190,15 @@ class Game:
         # Each player's conversation history (persistent thread)
         self.player_threads: dict[str, list[dict]] = {p.name: [] for p in players}
 
+        # Pending investigation result to deliver in the morning
+        self.pending_investigation: dict | None = None
+
+        # Pending examination result to deliver in the morning
+        self.pending_examination: dict | None = None
+
         # JSON transcript structure
+        detective = self.get_detective()
+        doctor = self.get_doctor()
         self.transcript = {
             "version": VERSION,
             "timestamp": datetime.now().isoformat(),
@@ -195,6 +207,8 @@ class Game:
                 for p in players
             ],
             "impostors": [p.name for p in self.impostors],
+            "detective": detective.name if detective else None,
+            "doctor": doctor.name if doctor else None,
             "winner": None,
             "rounds": []
         }
@@ -235,9 +249,13 @@ class Game:
         thread.append({"role": "assistant", "content": "[no response]"})
         return "[no response]"
 
-    def consolidate_memory(self, player: Player, include_night_context: bool = False) -> str:
+    def consolidate_memory(self, player: Player, include_night_context: bool = False, examination_target: str | None = None) -> str:
         """Player sleeps and consolidates memories."""
         prompt = IMPOSTOR_CONSOLIDATION_PROMPT if include_night_context else CREW_CONSOLIDATION_PROMPT
+
+        # Doctor gets examination context added to their prompt
+        if examination_target:
+            prompt = f"You're examining {examination_target}'s body tonight - you'll know the truth by morning.\n\n" + prompt
 
         response = self.send_to_player(player, prompt)
         memory = response.strip() if response else ""
@@ -249,12 +267,15 @@ class Game:
 
         return memory
 
-    def consolidate_memories(self, players: list[Player], include_night_context: bool) -> dict[str, str]:
+    def consolidate_memories(self, players: list[Player], include_night_context: bool, examination_target: str | None = None) -> dict[str, str]:
         """Consolidate memories for a list of players in parallel."""
         if not players:
             return {}
 
         def consolidate_one(player: Player) -> str:
+            # Only doctor gets examination context
+            if player.role == "doctor" and examination_target:
+                return self.consolidate_memory(player, include_night_context, examination_target=examination_target)
             return self.consolidate_memory(player, include_night_context)
 
         # Parallel API calls - executor.map preserves submission order
@@ -271,14 +292,14 @@ class Game:
 
         return memories
 
-    def player_msg(self, player: Player, message: str):
+    def player_msg(self, player: Player, message: str, asked_by: str | None = None):
         """Print a player's message with their color"""
         print(f"    {player.colored_name()}: {message}")
         # Add to JSON transcript
-        self.current_round_data["discussion"].append({
-            "player": player.name,
-            "message": message
-        })
+        entry = {"player": player.name, "message": message}
+        if asked_by:
+            entry["asked_by"] = asked_by
+        self.current_round_data["discussion"].append(entry)
 
     def alive_players(self) -> list[Player]:
         return [p for p in self.players if p.alive]
@@ -287,11 +308,99 @@ class Game:
         return [p for p in self.impostors if p.alive]
 
     def alive_crewmates(self) -> list[Player]:
-        return [p for p in self.players if p.alive and p.role == "crewmate"]
+        return [p for p in self.players if p.alive and p.role in ("crewmate", "detective", "doctor")]
+
+    def get_detective(self) -> Player | None:
+        """Return the detective player (alive or dead)."""
+        for p in self.players:
+            if p.role == "detective":
+                return p
+        return None
+
+    def get_doctor(self) -> Player | None:
+        """Return the doctor player (alive or dead)."""
+        for p in self.players:
+            if p.role == "doctor":
+                return p
+        return None
+
+    def submit_investigation(self, detective: Player) -> dict:
+        """Detective submits investigation target before sleeping."""
+        alive = self.alive_players()
+        candidates = [p for p in alive if p.name != detective.name]
+        candidate_names = ", ".join(p.name for p in candidates)
+
+        prompt = f"Choose one person to investigate tonight.\nCandidates: {candidate_names}\n\nUse /investigate [name]"
+
+        response = None
+        target = None
+        for _ in range(3):
+            response = self.send_to_player(detective, prompt)
+            target = self.parse_command(response, "investigate", candidates)
+            if target:
+                break
+            prompt = f"Invalid. Use /investigate [name] with one of: {candidate_names}"
+
+        # Fallback to random if no valid response
+        random_choice = False
+        if not target:
+            target = random.choice(candidates)
+            random_choice = True
+
+        # Determine result (but don't tell detective yet)
+        is_impostor = target.role == "impostor"
+
+        if self.spoilers:
+            random_note = " (random)" if random_choice else ""
+            print(f"      {Colors.CYAN}[investigation]{Colors.RESET} {detective.colored_name()} investigates {target.colored_name()}{random_note}\n")
+
+        investigation = {
+            "investigator": detective.name,
+            "target": target.name,
+            "result": "impostor" if is_impostor else "innocent",
+            "response": response,
+            "delivered": None  # Will be set after kill phase
+        }
+        if random_choice:
+            investigation["random"] = True
+
+        return investigation
+
+    def deliver_investigation_result(self, detective: Player, investigation: dict):
+        """Deliver investigation result to detective in the morning."""
+        target = investigation["target"]
+        result = investigation["result"]
+
+        if result == "impostor":
+            message = f"[INVESTIGATION RESULT] {target} is an IMPOSTOR."
+        else:
+            message = f"[INVESTIGATION RESULT] {target} is NOT an impostor."
+
+        self.player_threads[detective.name].append({"role": "user", "content": message})
+
+        if self.spoilers:
+            result_text = "IMPOSTOR" if result == "impostor" else "NOT an impostor"
+            print(f"      {Colors.CYAN}[investigation result]{Colors.RESET} {detective.colored_name()} learns: {target} is {result_text}\n")
+
+    def deliver_examination_result(self, doctor: Player, examination: dict):
+        """Deliver examination result to doctor in the morning."""
+        target = examination["target"]
+        result = examination["result"]
+
+        if result == "impostor":
+            message = f"[EXAMINATION RESULT] {target} was an IMPOSTOR."
+        else:
+            message = f"[EXAMINATION RESULT] {target} was NOT an impostor."
+
+        self.player_threads[doctor.name].append({"role": "user", "content": message})
+
+        if self.spoilers:
+            result_text = "IMPOSTOR" if result == "impostor" else "NOT an impostor"
+            print(f"      {Colors.CYAN}[examination result]{Colors.RESET} {doctor.colored_name()} learns: {target} was {result_text}\n")
 
     def parse_command(self, message: str, command: str, candidates: list[Player], exclude: str | None = None) -> Player | None:
         """Parse /command [name] from message and return target player."""
-        match = re.search(rf'/{command}\s+(\S+)', message, re.IGNORECASE)
+        match = re.search(rf'/\s*{command}\s+(\S+)', message, re.IGNORECASE)
         if not match:
             return None
 
@@ -309,24 +418,26 @@ class Game:
 
         return None
 
-    def _collect_vote(self, player: Player, candidates: list[Player]) -> tuple[Player, str, Player, bool]:
+    def _collect_vote(self, player: Player, candidates: list[Player]) -> tuple[Player, list[str], Player, bool]:
         """Collect a single player's vote with retry logic.
 
-        Returns: (voter, response, target, was_random)
+        Returns: (voter, attempts, target, was_random)
         """
         voteable = [p for p in candidates if p.name != player.name]
         vote_prompt = f"Time to vote. You MUST sacrifice someone.\nCandidates: {', '.join(p.name for p in voteable)}\n\nUse /vote [name] to cast your vote."
 
+        attempts = []
         for _ in range(3):
             response = self.send_to_player(player, vote_prompt)
+            attempts.append(response)
             matched_player = self.parse_command(response, "vote", candidates, exclude=player.name)
             if matched_player:
-                return (player, response, matched_player, False)
+                return (player, attempts, matched_player, False)
             vote_prompt = f"Invalid vote. Use /vote [name] with one of: {', '.join(p.name for p in voteable)}"
 
         # Fallback to random after 3 failed attempts
         fallback = random.choice(voteable)
-        return (player, response, fallback, True)
+        return (player, attempts, fallback, True)
 
     def build_discussion_prompt(self, player: Player, player_seen_idx: dict, messages_left: int, alive_count: int, asked_by: str | None = None) -> str:
         """Build prompt for a player's turn in discussion."""
@@ -408,10 +519,19 @@ class Game:
         if tie_between:
             self.current_round_data["vote_result"]["tie_between"] = tie_between
 
-        # Notify all alive players (order matches console: chosen, last words, sacrificed, impostors)
+        # Notify all alive players with vote breakdown
         last_words_info = f' Their last words: "{last_words}"' if last_words and last_words != "[no response]" else ""
+
+        # Format vote breakdown from the last vote round: "voter→target, voter→target, ..."
+        last_vote_round = self.current_round_data["vote_rounds"][-1]
+        vote_breakdown = ", ".join(
+            f"{voter}→{target}"
+            for target, voters in last_vote_round["votes"].items()
+            for voter in voters
+        )
+
         for p in self.alive_players():
-            self.player_threads[p.name].append({"role": "user", "content": f"[VOTE RESULT] {sacrificed.name} was chosen.{last_words_info} {desc}. {impostors_msg}"})
+            self.player_threads[p.name].append({"role": "user", "content": f"[VOTE RESULT] Votes: {vote_breakdown}. {sacrificed.name} was chosen.{last_words_info} {desc}. {impostors_msg}"})
 
         return sacrificed
 
@@ -469,6 +589,11 @@ class Game:
 
             if "/pass" in response.lower():
                 passed_since_last_message.add(player.name)
+                # Record pass in transcript
+                pass_entry = {"player": player.name, "message": response, "action": "pass"}
+                if asked_by:
+                    pass_entry["asked_by"] = asked_by
+                self.current_round_data["discussion"].append(pass_entry)
                 if len(passed_since_last_message) >= len(alive):
                     break  # Everyone passed
                 speaker_queue.append((player, None))
@@ -476,7 +601,7 @@ class Game:
 
             # Record message
             passed_since_last_message.clear()
-            self.player_msg(player, response)
+            self.player_msg(player, response, asked_by=asked_by)
             self.round_history.append({"name": player.name, "content": response})
             prev_speaker = player.name
             message_count += 1
@@ -496,6 +621,7 @@ class Game:
 
         alive = self.alive_players()
         candidates = alive
+        all_vote_rounds: list[dict] = []
 
         for vote_round in range(2):
             votes: dict[str, list[str]] = {p.name: [] for p in candidates}
@@ -509,9 +635,9 @@ class Game:
                 ))
 
             # Process results sequentially for consistent output
-            for player, response, target, was_random in vote_results:
+            for player, attempts, target, was_random in vote_results:
                 votes[target.name].append(player.name)
-                vote_entry = {"player": player.name, "message": response, "voted_for": target.name}
+                vote_entry = {"player": player.name, "attempts": attempts, "voted_for": target.name}
                 if was_random:
                     vote_entry["random"] = True
                     print(f"      {player.colored_name()} → {target.colored_name()} (random)")
@@ -527,24 +653,30 @@ class Game:
                 p = self.player_map.get(name)
                 print_vote_bar(name, len(voters), total_voters, p.color if p else "")
 
-            # Save votes to transcript
-            self.current_round_data["votes"] = votes
-            self.current_round_data["vote_messages"] = vote_messages
+            # Save this vote round
+            all_vote_rounds.append({
+                "round": vote_round + 1,
+                "candidates": [p.name for p in candidates],
+                "votes": votes,
+                "vote_messages": vote_messages
+            })
 
             # Find player(s) with most votes
             top_voted = [name for name, voters in votes.items() if len(voters) == max_votes]
 
             if len(top_voted) == 1:
+                self.current_round_data["vote_rounds"] = all_vote_rounds
                 return self.execute_sacrifice(self.player_map[top_voted[0]])
 
             if vote_round == 1:
+                self.current_round_data["vote_rounds"] = all_vote_rounds
                 return self.execute_sacrifice(self.player_map[random.choice(top_voted)], tie_between=top_voted)
 
             # First tie - re-vote on tied players
             print(f"\n    {Colors.YELLOW}Tie between {', '.join(top_voted)} - re-voting...{Colors.RESET}\n")
             candidates = [p for p in candidates if p.name in top_voted]
 
-    def kill_phase(self) -> Player | None:
+    def kill_phase(self, sacrificed_name: str | None = None) -> Player | None:
         alive_imps = self.alive_impostors()
         alive_crew = self.alive_crewmates()
 
@@ -552,10 +684,33 @@ class Game:
             return None
 
         print_night_header(self.round)
-        print(f"    {Colors.MAGENTA}Everyone sleeps... the impostors are plotting...{Colors.RESET}\n")
+
+        # Detective submits investigation before sleeping (if alive)
+        investigation = None
+        detective = self.get_detective()
+        if detective and detective.alive:
+            investigation = self.submit_investigation(detective)
+
+        # Doctor examination - automatic, based on who was sacrificed
+        examination = None
+        doctor = self.get_doctor()
+        if doctor and doctor.alive and sacrificed_name:
+            sacrificed = self.player_map[sacrificed_name]
+            is_impostor = sacrificed.role == "impostor"
+            examination = {
+                "examiner": doctor.name,
+                "target": sacrificed_name,
+                "result": "impostor" if is_impostor else "innocent",
+                "delivered": None
+            }
+            if self.spoilers:
+                print(f"      {Colors.CYAN}[examination]{Colors.RESET} {doctor.colored_name()} examines {sacrificed_name}'s body\n")
+
+        print(f"    {Colors.MAGENTA}Everyone sleeps...{Colors.RESET}\n")
 
         # Crew memory consolidation (they're sleeping)
-        crew_memories = self.consolidate_memories(alive_crew, include_night_context=False)
+        # Doctor gets examination context if there's a body to examine
+        crew_memories = self.consolidate_memories(alive_crew, include_night_context=False, examination_target=sacrificed_name)
 
         impostor_chat: list[dict] = []
         crew_names = [p.name for p in alive_crew]
@@ -609,8 +764,10 @@ class Game:
             killer = alive_imps[0]
             kill_prompt = f"NIGHT - Everyone's asleep. Choose who to kill tonight.\nTargets: {', '.join(crew_names)}\n\nUse /kill [name] to choose."
 
-            for attempt in range(3):
+            attempts = []
+            for _ in range(3):
                 response = self.send_to_player(killer, kill_prompt)
+                attempts.append(response)
                 target = self.parse_command(response, "kill", alive_crew)
                 if target:
                     break
@@ -621,14 +778,14 @@ class Game:
                 target = random.choice(alive_crew)
                 random_kill = True
 
-            # Save solo impostor response
-            chat_entry = {"player": killer.name, "message": response}
+            # Save solo impostor attempts
+            chat_entry = {"player": killer.name, "attempts": attempts}
             if random_kill:
                 chat_entry["random"] = True
             impostor_chat.append(chat_entry)
             if self.spoilers:
                 random_note = " (random)" if random_kill else ""
-                print(f"      {Colors.MAGENTA}[secret]{Colors.RESET} {killer.colored_name()}: {response}{random_note}\n")
+                print(f"      {Colors.MAGENTA}[secret]{Colors.RESET} {killer.colored_name()}: {attempts[-1]}{random_note}\n")
 
         # Store chat for endgame reveal (once, after all messages collected)
         self.impostor_chats.append({"round": self.round, "chat": impostor_chat})
@@ -636,17 +793,36 @@ class Game:
         if self.spoilers:
             print_kill(target.name)
 
+        # Kill the target
+        target.alive = False
+
         # Impostor memory consolidation (after their night work)
         impostor_memories = self.consolidate_memories(alive_imps, include_night_context=True)
 
+        # Check if Detective survived to receive result in the morning
+        if investigation:
+            if detective.alive:
+                investigation["delivered"] = True
+                self.pending_investigation = investigation
+            else:
+                investigation["delivered"] = False
+
+        # Check if Doctor survived to receive result in the morning
+        if examination:
+            if doctor.alive:
+                examination["delivered"] = True
+                self.pending_examination = examination
+            else:
+                examination["delivered"] = False
+
         # Save night data to transcript
         self.current_round_data["night"] = {
+            "investigation": investigation,
+            "examination": examination,
             "impostor_chat": impostor_chat,
             "killed": target.name,
             "memories": {**crew_memories, **impostor_memories}
         }
-
-        target.alive = False
 
         # Track elimination where it happens
         self.eliminations.append({
@@ -663,10 +839,14 @@ class Game:
         for p in self.players:
             if self.spoilers and p.role == "impostor":
                 print(f"      {p.colored_name()} {Colors.RED}impostor{Colors.RESET}")
+            elif self.spoilers and p.role == "detective":
+                print(f"      {p.colored_name()} {Colors.GREEN}detective{Colors.RESET}")
+            elif self.spoilers and p.role == "doctor":
+                print(f"      {p.colored_name()} {Colors.GREEN}doctor{Colors.RESET}")
             else:
                 print(f"      {p.colored_name()}")
 
-        print(f"\n    {Colors.YELLOW}2 impostors among them{Colors.RESET}")
+        print(f"\n    {Colors.YELLOW}2 impostors, 1 detective, 1 doctor among them{Colors.RESET}")
 
         dead_player = None
 
@@ -674,12 +854,26 @@ class Game:
             self.round += 1
             print_day_header(self.round)
 
+            # Morning: Deliver pending investigation result to Detective
+            if self.pending_investigation:
+                detective = self.get_detective()
+                if detective and detective.alive:
+                    self.deliver_investigation_result(detective, self.pending_investigation)
+                self.pending_investigation = None
+
+            # Morning: Deliver pending examination result to Doctor
+            if self.pending_examination:
+                doctor = self.get_doctor()
+                if doctor and doctor.alive:
+                    self.deliver_examination_result(doctor, self.pending_examination)
+                self.pending_examination = None
+
             # Initialize round data for transcript
             self.current_round_data = {
                 "day": self.round,
                 "dead_at_start": dead_player,
                 "discussion": [],
-                "votes": {},
+                "vote_rounds": [],
                 "vote_result": {},
                 "night": None
             }
@@ -688,7 +882,8 @@ class Game:
             self.discussion_phase(dead_player)
 
             # Vote
-            self.voting_phase()
+            sacrificed = self.voting_phase()
+            sacrificed_name = sacrificed.name if sacrificed else None
 
             # Check win after vote
             winner = self.check_win()
@@ -697,8 +892,8 @@ class Game:
                 self.end_game(winner)
                 return
 
-            # Kill phase
-            killed = self.kill_phase()
+            # Kill phase (pass sacrificed player for doctor examination)
+            killed = self.kill_phase(sacrificed_name)
             dead_player = killed.name if killed else None
 
             # Save round data
@@ -728,7 +923,7 @@ class Game:
         print(f"\n    {Colors.CYAN}Reveal{Colors.RESET}\n")
         for p in self.players:
             status = "survived" if p.alive else "eliminated"
-            role_color = Colors.GREEN if p.role == "crewmate" else Colors.RED
+            role_color = Colors.RED if p.role == "impostor" else Colors.GREEN
             print(f"      {p.colored_name()} {role_color}{p.role}{Colors.RESET} ({status})")
 
         # Show elimination order
@@ -746,7 +941,9 @@ class Game:
                 print(f"\n      {Colors.MAGENTA}Night {round_chat['round']}{Colors.RESET}")
                 for msg in round_chat['chat']:
                     imp = self.player_map.get(msg['player'])
-                    print(f"        {imp.colored_name() if imp else msg['player']}: {msg['message']}")
+                    # Handle both 'message' (multi-impostor) and 'attempts' (solo)
+                    content = msg.get('message') or msg.get('attempts', [''])[-1]
+                    print(f"        {imp.colored_name() if imp else msg['player']}: {content}")
 
         # Save transcript as JSON
         self.save_game()
@@ -804,6 +1001,16 @@ def play():
     impostor_indices = random.sample(range(len(players)), 2)
     for i in impostor_indices:
         players[i].role = "impostor"
+
+    # Assign 1 detective from remaining crew
+    crew_indices = [i for i in range(len(players)) if players[i].role == "crewmate"]
+    detective_index = random.choice(crew_indices)
+    players[detective_index].role = "detective"
+
+    # Assign 1 doctor from remaining crew
+    crew_indices = [i for i in range(len(players)) if players[i].role == "crewmate"]
+    doctor_index = random.choice(crew_indices)
+    players[doctor_index].role = "doctor"
 
     # Shuffle player order
     random.shuffle(players)

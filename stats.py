@@ -117,6 +117,23 @@ def count_days_in_game(game: dict) -> int:
     return len(game.get("rounds", []))
 
 
+def process_votes(votes: dict, players: dict[str, dict], impostors: set, game: dict) -> None:
+    """Process votes from a single vote round."""
+    for target, voters in votes.items():
+        # Count votes received
+        if target in players:
+            players[target]["times_received_votes"] += len(voters)
+
+        # Count voting accuracy (for crew members voting)
+        for voter in voters:
+            if voter in players:
+                voter_role = get_player_role(game, voter)
+                if voter_role == "crew":
+                    players[voter]["votes_cast_as_crew"] += 1
+                    if target in impostors:
+                        players[voter]["votes_for_impostors"] += 1
+
+
 def process_game(game: dict, players: dict[str, dict]) -> None:
     """Process a single game and update player stats and ELO."""
     winner = game["winner"]
@@ -207,27 +224,24 @@ def process_game(game: dict, players: dict[str, dict]) -> None:
 
     # Process voting and message stats from rounds
     for round_data in game.get("rounds", []):
-        # Count messages
+        # Count messages (skip pass actions for message count)
         for msg in round_data.get("discussion", []):
-            speaker = msg["player"]
-            if speaker in players:
-                players[speaker]["total_messages"] += 1
+            if msg.get("action") != "pass":
+                speaker = msg["player"]
+                if speaker in players:
+                    players[speaker]["total_messages"] += 1
 
-        # Process votes
-        votes = round_data.get("votes", {})
-        for target, voters in votes.items():
-            # Count votes received
-            if target in players:
-                players[target]["times_received_votes"] += len(voters)
-
-            # Count voting accuracy (for crew members voting)
-            for voter in voters:
-                if voter in players:
-                    voter_role = get_player_role(game, voter)
-                    if voter_role == "crew":
-                        players[voter]["votes_cast_as_crew"] += 1
-                        if target in impostors:
-                            players[voter]["votes_for_impostors"] += 1
+        # Process votes - handle both old "votes" format and new "vote_rounds" format
+        vote_rounds = round_data.get("vote_rounds", [])
+        if vote_rounds:
+            # New format: list of vote rounds
+            for vote_round in vote_rounds:
+                votes = vote_round.get("votes", {})
+                process_votes(votes, players, impostors, game)
+        else:
+            # Old format: votes directly on round_data (backwards compatibility)
+            votes = round_data.get("votes", {})
+            process_votes(votes, players, impostors, game)
 
 
 def calculate_derived_stats(players: dict[str, dict]) -> dict[str, dict]:

@@ -128,7 +128,7 @@ def process_votes(votes: dict, players: dict[str, dict], impostors: set, game: d
         for voter in voters:
             if voter in players:
                 voter_role = get_player_role(game, voter)
-                if voter_role == "crew":
+                if voter_role and voter_role != "impostor":
                     players[voter]["votes_cast_as_crew"] += 1
                     if target in impostors:
                         players[voter]["votes_for_impostors"] += 1
@@ -186,7 +186,7 @@ def process_game(game: dict, players: dict[str, dict]) -> None:
     for player_name in all_players:
         stats = players[player_name]
         role = get_player_role(game, player_name)
-        player_won = (role == "impostor" and impostor_won) or (role == "crew" and not impostor_won)
+        player_won = (role == "impostor" and impostor_won) or (role != "impostor" and not impostor_won)
 
         # Basic stats
         stats["games_played"] += 1

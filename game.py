@@ -129,7 +129,7 @@ def get_system_prompt(player: Player, players: list[Player], impostors: list[Pla
     # Exclude self from "others" list to avoid confusion
     other_names = [p.name for p in players if p.alive and p.name != player.name]
 
-    base = f"""You ARE {player.name}. Speak as yourself. You're part of a group with 2 impostors hidden among you. The crew includes a detective who investigates one person each night, and a doctor who examines the sacrificed body each night. Both learn if their target was an impostor.
+    base = f"""You ARE {player.name}. Speak as yourself. You're part of a group with 2 impostors hidden among you. The crew includes a detective who investigates one person each night, and a doctor who examines the sacrificed body each night. Both learn if their subject was an impostor but only they know what they've found and no one knows who they are. Others can ask. They may choose to reveal it. So can anyone else.
 
 The others: {', '.join(other_names)}
 
@@ -144,15 +144,15 @@ Don't introduce yourself. Don't be meta. Just talk naturally.
         alive_partners = [p.name for p in impostors if p.name != player.name and p.alive]
         dead_partners = [p.name for p in impostors if p.name != player.name and not p.alive]
         if alive_partners:
-            base += f"\nYou are secretly an IMPOSTOR. Your partner is {', '.join(alive_partners)}. Don't die."
+            base += f"\nYou are secretly an IMPOSTOR. Your partner is {', '.join(alive_partners)}."
         else:
-            base += f"\nYou are secretly an IMPOSTOR. Your partner {', '.join(dead_partners)} is dead. You're alone now. Don't die."
+            base += f"\nYou are secretly an IMPOSTOR. Your partner {', '.join(dead_partners)} is dead. You're alone now."
     else:
-        base += "\nYou are CREW. Find the impostors. Don't die."
+        base += "\nYou are CREW. Find the impostors."
         if player.role == "detective":
-            base += "\nYou are also the DETECTIVE - before you sleep each night, you choose someone to investigate. When you wake up, you learn if they're an impostor."
+            base += "\nYou are also the DETECTIVE. Before you sleep each night, you choose someone to investigate. When you wake up, you learn if they're an impostor."
         elif player.role == "doctor":
-            base += "\nYou are also the DOCTOR - each night you examine the sacrificed body. When you wake up, you learn if they were an impostor."
+            base += "\nYou are also the DOCTOR. Each night you examine the sacrificed body. When you wake up, you learn if they were an impostor."
 
     base += "\n\nKeep it short and natural. 2-3 sentences max. Say /pass to stay silent. Say /ask [name] to interrupt and confront someone directly."
     return base
@@ -160,11 +160,11 @@ Don't introduce yourself. Don't be meta. Just talk naturally.
 # === Memory Consolidation Prompts ===
 CREW_CONSOLIDATION_PROMPT = """Night falls.
 
-Write what you want to remember - when you wake up this will be your only memory of past days."""
+Write your notes till now. When you wake up, this is all you'll have of past days."""
 
 IMPOSTOR_CONSOLIDATION_PROMPT = """The night's work is done.
 
-Write what you want to remember - when you wake up this will be your only memory of past days."""
+Write your notes till now. When you wake up, this is all you'll have of past days."""
 
 # === Game Logic ===
 class Game:
@@ -255,7 +255,7 @@ class Game:
 
         # Doctor gets examination context added to their prompt
         if examination_target:
-            prompt = f"You're examining {examination_target}'s body tonight - you'll know the truth by morning.\n\n" + prompt
+            prompt = f"You're examining {examination_target}'s body tonight - you'll learn the result by morning.\n\n" + prompt
 
         response = self.send_to_player(player, prompt)
         memory = response.strip() if response else ""
@@ -330,7 +330,7 @@ class Game:
         candidates = [p for p in alive if p.name != detective.name]
         candidate_names = ", ".join(p.name for p in candidates)
 
-        prompt = f"Choose one person to investigate tonight.\nCandidates: {candidate_names}\n\nUse /investigate [name]"
+        prompt = f"Choose one person to investigate tonight - you'll learn the result by morning.\nCandidates: {candidate_names}\n\nUse /investigate [name]"
 
         response = None
         target = None
@@ -706,7 +706,7 @@ class Game:
             if self.spoilers:
                 print(f"      {Colors.CYAN}[examination]{Colors.RESET} {doctor.colored_name()} examines {sacrificed_name}'s body\n")
 
-        print(f"    {Colors.MAGENTA}Everyone sleeps...{Colors.RESET}\n")
+        print(f"    {Colors.MAGENTA}Everyone sleeps... the impostors are plotting...{Colors.RESET}\n")
 
         # Crew memory consolidation (they're sleeping)
         # Doctor gets examination context if there's a body to examine

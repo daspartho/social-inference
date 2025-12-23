@@ -9,9 +9,10 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 from openai import OpenAI
 
-VERSION = "1.0"
+VERSION = "0.1"
 
 # === Configuration ===
+DISCUSSION_BUDGET_FACTOR = 3  # Total messages = this × alive players
 DEFAULT_IMPOSTOR_CHAT_LIMIT = 5
 
 # === Colors ===
@@ -28,7 +29,7 @@ class Colors:
 PLAYER_COLORS = [
     '\033[38;2;255;107;107m',  # Coral      - #FF6B6B
     '\033[38;2;255;159;67m',   # Tangerine  - #FF9F43
-    '\033[38;2;255;171;145m',  # Peach      - #FFAB91
+    '\033[38;2;255;182;193m',  # Light Pink - #FFB6C1
     '\033[38;2;184;233;148m',  # Lime       - #B8E994
     '\033[38;2;255;111;60m',   # Flame      - #FF6F3C
     '\033[38;2;26;188;156m',   # Teal       - #1ABC9C
@@ -36,6 +37,7 @@ PLAYER_COLORS = [
     '\033[38;2;124;143;248m',  # Periwinkle - #7C8FF8
     '\033[38;2;187;107;217m',  # Orchid     - #BB6BD9
     '\033[38;2;255;105;180m',  # Hot Pink   - #FF69B4
+    '\033[38;2;41;121;255m',   # Royal      - #2979FF
 ]
 
 # === Display Helpers ===
@@ -187,8 +189,8 @@ class Game:
         # Pending examination result to deliver in the morning
         self.pending_examination: dict | None = None
 
-        detective = self.get_detective()
-        doctor = self.get_doctor()
+        detective = self.get_role_player("detective")
+        doctor = self.get_role_player("doctor")
         self.transcript = {
             "version": VERSION,
             "timestamp": datetime.now().isoformat(),
@@ -298,17 +300,10 @@ class Game:
     def alive_crewmates(self) -> list[Player]:
         return [p for p in self.players if p.alive and p.role in ("crewmate", "detective", "doctor")]
 
-    def get_detective(self) -> Player | None:
-        """Return the detective player (alive or dead)."""
+    def get_role_player(self, role: str) -> Player | None:
+        """Return the player with the given role (alive or dead)."""
         for p in self.players:
-            if p.role == "detective":
-                return p
-        return None
-
-    def get_doctor(self) -> Player | None:
-        """Return the doctor player (alive or dead)."""
-        for p in self.players:
-            if p.role == "doctor":
+            if p.role == role:
                 return p
         return None
 
@@ -318,22 +313,12 @@ class Game:
         candidates = [p for p in alive if p.name != detective.name]
         candidate_names = ", ".join(p.name for p in candidates)
 
-        prompt = f"Choose one person to investigate tonight - you'll learn the result by morning.\nCandidates: {candidate_names}\n\nUse /investigate [name]"
-
-        response = None
-        target = None
-        for _ in range(3):
-            response = self.send_to_player(detective, prompt)
-            target = self.parse_command(response, "investigate", candidates)
-            if target:
-                break
-            prompt = f"Invalid. Use /investigate [name] with one of: {candidate_names}"
-
-        # Fallback to random if no valid response
-        random_choice = False
-        if not target:
-            target = random.choice(candidates)
-            random_choice = True
+        target, attempts, random_choice = self.request_command(
+            detective, "investigate", candidates,
+            initial_prompt=f"Choose one person to investigate tonight - you'll learn the result by morning.\nCandidates: {candidate_names}\n\nUse /investigate [name]",
+            retry_prompt=f"Invalid. Use /investigate [name] with one of: {candidate_names}"
+        )
+        response = attempts[-1]
 
         # Determine result (but don't tell detective yet)
         is_impostor = target.role == "impostor"
@@ -354,37 +339,21 @@ class Game:
 
         return investigation
 
-    def deliver_investigation_result(self, detective: Player, investigation: dict):
-        """Deliver investigation result to detective in the morning."""
-        target = investigation["target"]
-        result = investigation["result"]
+    def deliver_night_result(self, player: Player, result_data: dict, result_type: str):
+        """Deliver investigation or examination result to player in the morning."""
+        target = result_data["target"]
+        is_impostor = result_data["result"] == "impostor"
+        is_investigation = result_type == "investigation"
 
-        if result == "impostor":
-            message = f"[INVESTIGATION RESULT] {target} is an IMPOSTOR."
-        else:
-            message = f"[INVESTIGATION RESULT] {target} is NOT an impostor."
+        verb = "is" if is_investigation else "was"
+        label = result_type.upper()
+        result_text = "an IMPOSTOR" if is_impostor else "NOT an impostor"
 
-        self.player_threads[detective.name].append({"role": "user", "content": message})
-
-        if self.spoilers:
-            result_text = "IMPOSTOR" if result == "impostor" else "NOT an impostor"
-            print(f"      {Colors.CYAN}[investigation result]{Colors.RESET} {detective.colored_name()} learns: {target} is {result_text}\n")
-
-    def deliver_examination_result(self, doctor: Player, examination: dict):
-        """Deliver examination result to doctor in the morning."""
-        target = examination["target"]
-        result = examination["result"]
-
-        if result == "impostor":
-            message = f"[EXAMINATION RESULT] {target} was an IMPOSTOR."
-        else:
-            message = f"[EXAMINATION RESULT] {target} was NOT an impostor."
-
-        self.player_threads[doctor.name].append({"role": "user", "content": message})
+        message = f"[{label} RESULT] {target} {verb} {result_text}."
+        self.player_threads[player.name].append({"role": "user", "content": message})
 
         if self.spoilers:
-            result_text = "IMPOSTOR" if result == "impostor" else "NOT an impostor"
-            print(f"      {Colors.CYAN}[examination result]{Colors.RESET} {doctor.colored_name()} learns: {target} was {result_text}\n")
+            print(f"      {Colors.CYAN}[{result_type} result]{Colors.RESET} {player.colored_name()} learns: {target} {verb} {result_text}\n")
 
     def parse_command(self, message: str, command: str, candidates: list[Player], exclude: str | None = None) -> Player | None:
         """Parse /command [name] from message and return target player."""
@@ -392,19 +361,34 @@ class Game:
         if not match:
             return None
 
-        target_name = match.group(1).lower()
+        target_name = match.group(1).lower().rstrip('.,;:!?')
 
-        # Try exact match first
         for p in candidates:
             if p.name.lower() == target_name and p.name != exclude:
                 return p
 
-        # Try partial match (target_name is substring of player name)
-        for p in candidates:
-            if target_name in p.name.lower() and p.name != exclude:
-                return p
-
         return None
+
+    def request_command(self, player: Player, command: str, candidates: list[Player],
+                        initial_prompt: str, retry_prompt: str,
+                        exclude: str | None = None) -> tuple[Player, list[str], bool]:
+        """Request a /command from player with retries and random fallback.
+
+        Returns: (target, attempts, was_random)
+        """
+        attempts = []
+        prompt = initial_prompt
+        valid_candidates = [p for p in candidates if p.name != exclude]
+
+        for _ in range(3):
+            response = self.send_to_player(player, prompt)
+            attempts.append(response)
+            target = self.parse_command(response, command, candidates, exclude=exclude)
+            if target:
+                return (target, attempts, False)
+            prompt = retry_prompt
+
+        return (random.choice(valid_candidates), attempts, True)
 
     def _collect_vote(self, player: Player, candidates: list[Player]) -> tuple[Player, list[str], Player, bool]:
         """Collect a single player's vote with retry logic.
@@ -412,20 +396,15 @@ class Game:
         Returns: (voter, attempts, target, was_random)
         """
         voteable = [p for p in candidates if p.name != player.name]
-        vote_prompt = f"Time to vote. You MUST sacrifice someone.\nCandidates: {', '.join(p.name for p in voteable)}\n\nUse /vote [name] to cast your vote."
+        names = ", ".join(p.name for p in voteable)
 
-        attempts = []
-        for _ in range(3):
-            response = self.send_to_player(player, vote_prompt)
-            attempts.append(response)
-            matched_player = self.parse_command(response, "vote", candidates, exclude=player.name)
-            if matched_player:
-                return (player, attempts, matched_player, False)
-            vote_prompt = f"Invalid vote. Use /vote [name] with one of: {', '.join(p.name for p in voteable)}"
-
-        # Fallback to random after 3 failed attempts
-        fallback = random.choice(voteable)
-        return (player, attempts, fallback, True)
+        target, attempts, was_random = self.request_command(
+            player, "vote", candidates,
+            initial_prompt=f"Time to vote. You MUST sacrifice someone.\nCandidates: {names}\n\nUse /vote [name] to cast your vote.",
+            retry_prompt=f"Invalid vote. Use /vote [name] with one of: {names}",
+            exclude=player.name
+        )
+        return (player, attempts, target, was_random)
 
     def build_discussion_prompt(self, player: Player, player_seen_idx: dict, messages_left: int, alive_count: int) -> str:
         """Build prompt for a player's turn in discussion."""
@@ -520,7 +499,7 @@ class Game:
 
         self.round_history = []
         alive = self.alive_players()
-        round_limit = 3 * len(alive)
+        round_limit = DISCUSSION_BUDGET_FACTOR * len(alive)
         warned_final = False
 
         player_order = ", ".join(p.name for p in alive)
@@ -562,7 +541,7 @@ class Game:
             response = self.send_to_player(player, prompt)
             player_seen_idx[player.name] = len(self.round_history)
 
-            if "/pass" in response.lower():
+            if re.search(r'/pass\b', response, re.IGNORECASE):
                 passed_since_last_message.add(player.name)
                 pass_entry = {"player": player.name, "message": response, "action": "pass"}
                 if asked_by:
@@ -656,13 +635,13 @@ class Game:
 
         # Detective submits investigation before sleeping (if alive)
         investigation = None
-        detective = self.get_detective()
+        detective = self.get_role_player("detective")
         if detective and detective.alive:
             investigation = self.submit_investigation(detective)
 
         # Doctor examination - automatic, based on who was sacrificed
         examination = None
-        doctor = self.get_doctor()
+        doctor = self.get_role_player("doctor")
         if doctor and doctor.alive and sacrificed_name:
             sacrificed = self.player_map[sacrificed_name]
             is_impostor = sacrificed.role == "impostor"
@@ -730,21 +709,13 @@ class Game:
             target = kill_locked
         else:
             killer = alive_imps[0]
-            kill_prompt = f"NIGHT - Everyone's asleep. Choose who to kill tonight.\nTargets: {', '.join(crew_names)}\n\nUse /kill [name] to choose."
+            names = ", ".join(crew_names)
 
-            attempts = []
-            for _ in range(3):
-                response = self.send_to_player(killer, kill_prompt)
-                attempts.append(response)
-                target = self.parse_command(response, "kill", alive_crew)
-                if target:
-                    break
-                kill_prompt = f"Invalid target. Use /kill [name] with one of: {', '.join(crew_names)}"
-
-            random_kill = False
-            if not target:
-                target = random.choice(alive_crew)
-                random_kill = True
+            target, attempts, random_kill = self.request_command(
+                killer, "kill", alive_crew,
+                initial_prompt=f"NIGHT - Everyone's asleep. Choose who to kill tonight.\nTargets: {names}\n\nUse /kill [name] to choose.",
+                retry_prompt=f"Invalid target. Use /kill [name] with one of: {names}"
+            )
 
             chat_entry = {"player": killer.name, "attempts": attempts}
             if random_kill:
@@ -820,15 +791,15 @@ class Game:
             print_day_header(self.round)
 
             if self.pending_investigation:
-                detective = self.get_detective()
+                detective = self.get_role_player("detective")
                 if detective and detective.alive:
-                    self.deliver_investigation_result(detective, self.pending_investigation)
+                    self.deliver_night_result(detective, self.pending_investigation, "investigation")
                 self.pending_investigation = None
 
             if self.pending_examination:
-                doctor = self.get_doctor()
+                doctor = self.get_role_player("doctor")
                 if doctor and doctor.alive:
-                    self.deliver_examination_result(doctor, self.pending_examination)
+                    self.deliver_night_result(doctor, self.pending_examination, "examination")
                 self.pending_examination = None
 
             self.current_round_data = {
@@ -920,6 +891,7 @@ DEFAULT_LINEUP = [
     "mistralai/mistral-large-2512",
     "moonshotai/kimi-k2-thinking",
     "z-ai/glm-4.6",
+    "prime-intellect/intellect-3",
 ]
 
 def play():
@@ -932,12 +904,15 @@ def play():
         print(f"    {Colors.YELLOW}Export your API key: export PRIME_API_KEY=your_key{Colors.RESET}\n")
         return
 
+    assert len(DEFAULT_LINEUP) <= len(PLAYER_COLORS), \
+        f"Add {len(DEFAULT_LINEUP) - len(PLAYER_COLORS)} more color(s) to PLAYER_COLORS for the new player(s)"
+
     players = [
         Player(
             name=model.split("/")[-1],
             model=model,
             role="crewmate",
-            color=PLAYER_COLORS[i % len(PLAYER_COLORS)]
+            color=PLAYER_COLORS[i]
         )
         for i, model in enumerate(DEFAULT_LINEUP)
     ]
@@ -947,11 +922,8 @@ def play():
         players[i].role = "impostor"
 
     crew_indices = [i for i in range(len(players)) if players[i].role == "crewmate"]
-    detective_index = random.choice(crew_indices)
+    detective_index, doctor_index = random.sample(crew_indices, 2)
     players[detective_index].role = "detective"
-
-    crew_indices = [i for i in range(len(players)) if players[i].role == "crewmate"]
-    doctor_index = random.choice(crew_indices)
     players[doctor_index].role = "doctor"
 
     random.shuffle(players)

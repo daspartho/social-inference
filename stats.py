@@ -6,7 +6,7 @@ ELO System:
 - Team vs Team: Your team's average ELO vs opponent team's average ELO
 - Everyone on the same team gets the same rating change
 - Two separate ratings: impostor_elo and crew_elo
-- Overall ELO is weighted average by games played in each role
+- Overall ELO is simple average of impostor and crew ELO (if both played)
 """
 
 import json
@@ -185,15 +185,12 @@ def process_game(game: dict, players: dict[str, dict]) -> None:
                 stats[f"asked_as_{role}"] += 1
 
         vote_rounds = round_data.get("vote_rounds", [])
-        if vote_rounds:
-            for vote_round in vote_rounds:
-                process_votes(vote_round.get("votes", {}), players, impostors)
-        else:
-            process_votes(round_data.get("votes", {}), players, impostors)
+        for vote_round in vote_rounds:
+            process_votes(vote_round.get("votes", {}), players, impostors)
 
         sacrificed = round_data.get("vote_result", {}).get("sacrificed")
-        if sacrificed:
-            final_votes = vote_rounds[-1].get("votes", {}) if vote_rounds else round_data.get("votes", {})
+        if sacrificed and vote_rounds:
+            final_votes = vote_rounds[-1].get("votes", {})
             for target, voters in final_votes.items():
                 for voter in voters:
                     if voter not in players:

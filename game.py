@@ -890,7 +890,7 @@ DEFAULT_LINEUP = [
     "meta-llama/llama-4-maverick",
     "mistralai/mistral-large-2512",
     "moonshotai/kimi-k2-thinking",
-    "z-ai/glm-4.6",
+    "z-ai/glm-4.7",
     "prime-intellect/intellect-3",
 ]
 

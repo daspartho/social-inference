@@ -1,14 +1,14 @@
 {
-  "generated_at": "2026-01-15T04:04:22.226555",
+  "generated_at": "2026-01-19T09:32:49.814824",
   "games_analyzed": 10,
   "rankings": [
     {
       "rank": 1,
       "llm": "gpt-5.2",
       "elo": {
-        "overall": 1016,
-        "impostor": 1045,
-        "crew": 986
+        "overall": 1015.8,
+        "impostor": 1045.1,
+        "crew": 986.5
       },
       "won": {
         "overall": 0.6,
@@ -59,9 +59,9 @@
       "rank": 2,
       "llm": "kimi-k2-thinking",
       "elo": {
-        "overall": 1003,
-        "impostor": 1033,
-        "crew": 974
+        "overall": 1003.3,
+        "impostor": 1032.7,
+        "crew": 974.0
       },
       "won": {
         "overall": 0.5,
@@ -112,9 +112,9 @@
       "rank": 3,
       "llm": "mistral-large-2512",
       "elo": {
-        "overall": 987,
-        "impostor": 1016,
-        "crew": 957
+        "overall": 986.7,
+        "impostor": 1016.0,
+        "crew": 957.3
       },
       "won": {
         "overall": 0.4,
@@ -165,9 +165,9 @@
       "rank": 4,
       "llm": "claude-opus-4.5",
       "elo": {
-        "overall": 986,
-        "impostor": 1016,
-        "crew": 957
+        "overall": 986.2,
+        "impostor": 1015.5,
+        "crew": 956.9
       },
       "won": {
         "overall": 0.4,
@@ -216,64 +216,11 @@
     },
     {
       "rank": 5,
-      "llm": "intellect-3",
-      "elo": {
-        "overall": 986,
-        "impostor": 1015,
-        "crew": 956
-      },
-      "won": {
-        "overall": 0.4,
-        "impostor": 0.67,
-        "crew": 0.29
-      },
-      "games": {
-        "total": 10,
-        "impostor": 3,
-        "crew": 7
-      },
-      "survived": {
-        "overall": 0.4,
-        "impostor": 0.33,
-        "crew": 0.43
-      },
-      "sacrificed": 0.5,
-      "killed": 0.14,
-      "accuracy": 0.32,
-      "majority_rate": {
-        "overall": 0.72,
-        "impostor": 0.75,
-        "crew": 0.71
-      },
-      "ask_rate": {
-        "overall": 0.44,
-        "impostor": 0.19,
-        "crew": 0.53
-      },
-      "asked_rate": {
-        "overall": 0.33,
-        "impostor": 0.33,
-        "crew": 0.32
-      },
-      "pass_rate": 0.02,
-      "detective": {
-        "investigations": 0,
-        "catches": 0,
-        "catch_rate": null
-      },
-      "detected": {
-        "investigations": 0,
-        "caught": 0,
-        "caught_rate": null
-      }
-    },
-    {
-      "rank": 6,
       "llm": "gemini-3-pro-preview",
       "elo": {
-        "overall": 986,
-        "impostor": 1015,
-        "crew": 957
+        "overall": 986.1,
+        "impostor": 1015.4,
+        "crew": 956.7
       },
       "won": {
         "overall": 0.4,
@@ -321,12 +268,65 @@
       }
     },
     {
+      "rank": 6,
+      "llm": "intellect-3",
+      "elo": {
+        "overall": 985.7,
+        "impostor": 1015.0,
+        "crew": 956.3
+      },
+      "won": {
+        "overall": 0.4,
+        "impostor": 0.67,
+        "crew": 0.29
+      },
+      "games": {
+        "total": 10,
+        "impostor": 3,
+        "crew": 7
+      },
+      "survived": {
+        "overall": 0.4,
+        "impostor": 0.33,
+        "crew": 0.43
+      },
+      "sacrificed": 0.5,
+      "killed": 0.14,
+      "accuracy": 0.32,
+      "majority_rate": {
+        "overall": 0.72,
+        "impostor": 0.75,
+        "crew": 0.71
+      },
+      "ask_rate": {
+        "overall": 0.44,
+        "impostor": 0.19,
+        "crew": 0.53
+      },
+      "asked_rate": {
+        "overall": 0.33,
+        "impostor": 0.33,
+        "crew": 0.32
+      },
+      "pass_rate": 0.02,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
       "rank": 7,
       "llm": "glm-4.7",
       "elo": {
-        "overall": 983,
-        "impostor": 1013,
-        "crew": 954
+        "overall": 983.3,
+        "impostor": 1012.7,
+        "crew": 954.0
       },
       "won": {
         "overall": 0.4,
@@ -377,9 +377,9 @@
       "rank": 8,
       "llm": "llama-4-maverick",
       "elo": {
-        "overall": 970,
-        "impostor": 1000,
-        "crew": 941
+        "overall": 970.3,
+        "impostor": 999.6,
+        "crew": 940.9
       },
       "won": {
         "overall": 0.3,
@@ -430,9 +430,9 @@
       "rank": 9,
       "llm": "grok-4",
       "elo": {
-        "overall": 954,
-        "impostor": 984,
-        "crew": 925
+        "overall": 954.2,
+        "impostor": 983.5,
+        "crew": 924.8
       },
       "won": {
         "overall": 0.2,
@@ -483,9 +483,9 @@
       "rank": 10,
       "llm": "deepseek-v3.2",
       "elo": {
-        "overall": 953,
-        "impostor": 982,
-        "crew": 923
+        "overall": 952.5,
+        "impostor": 981.8,
+        "crew": 923.2
       },
       "won": {
         "overall": 0.2,
@@ -536,9 +536,9 @@
       "rank": 11,
       "llm": "qwen3-235b-a22b-2507",
       "elo": {
-        "overall": 941,
+        "overall": 941.3,
         "impostor": null,
-        "crew": 941
+        "crew": 941.3
       },
       "won": {
         "overall": 0.3,

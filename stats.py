@@ -233,8 +233,8 @@ def calculate_derived_stats(players: dict[str, dict]) -> dict[str, dict]:
         total_passes = total_turns - total_messages
 
         results[name] = {
-            "impostor_elo": round(s["impostor_elo"]),
-            "crew_elo": round(s["crew_elo"]),
+            "impostor_elo": round(s["impostor_elo"], 1),
+            "crew_elo": round(s["crew_elo"], 1),
             "overall_elo": None,
             "games_played": games,
             "impostor_games": imp_games,
@@ -271,11 +271,11 @@ def calculate_derived_stats(players: dict[str, dict]) -> dict[str, dict]:
 
         r = results[name]
         if imp_games > 0 and crew_games > 0:
-            r["overall_elo"] = round((s["impostor_elo"] + s["crew_elo"]) / 2)
+            r["overall_elo"] = round((s["impostor_elo"] + s["crew_elo"]) / 2, 1)
         elif imp_games > 0:
-            r["overall_elo"] = round(s["impostor_elo"])
+            r["overall_elo"] = r["impostor_elo"]
         elif crew_games > 0:
-            r["overall_elo"] = round(s["crew_elo"])
+            r["overall_elo"] = r["crew_elo"]
 
     return results
 
@@ -321,8 +321,8 @@ def print_rankings(stats: dict[str, dict], games_analyzed: int) -> list[dict]:
     print(f"    {Colors.CYAN}{Colors.BOLD}Rankings{Colors.RESET} {Colors.CYAN}({games_analyzed} games){Colors.RESET}")
     print(f"    ({Colors.RED}impostor{Colors.RESET}/{Colors.GREEN}crew{Colors.RESET})")
     print()
-    print(f"    {Colors.CYAN}{'#':<3} {'LLM':<24} {'ELO':<18} {'Won':<20} {'Games':<12} {'Survived':<20} {'Sacrificed':<11} {'Killed':<8} {'Accuracy':<9} {'Majority':<18} {'Asks':<18} {'Asked':<18} {'Detects':<10} {'Detected':<10} {'Pass':<6}{Colors.RESET}")
-    print(f"    {'─' * 218}")
+    print(f"    {Colors.CYAN}{'#':<3} {'LLM':<24} {'ELO':<26} {'Won':<20} {'Games':<12} {'Survived':<20} {'Sacrificed':<11} {'Killed':<8} {'Accuracy':<9} {'Majority':<18} {'Asks':<18} {'Asked':<18} {'Detects':<10} {'Detected':<10} {'Pass':<6}{Colors.RESET}")
+    print(f"    {'─' * 226}")
 
     rankings = []
 
@@ -334,10 +334,10 @@ def print_rankings(stats: dict[str, dict], games_analyzed: int) -> list[dict]:
         games_col = format_with_roles(str(total_games), str(imp_games), str(crew_games), 2, 12)
 
         elo_col = format_with_roles(
-            str(p["overall_elo"]) if p["overall_elo"] else "-",
-            str(p["impostor_elo"]) if imp_games > 0 else "-",
-            str(p["crew_elo"]) if crew_games > 0 else "-",
-            4, 18
+            f"{p['overall_elo']:.1f}" if p["overall_elo"] else "-",
+            f"{p['impostor_elo']:.1f}" if imp_games > 0 else "-",
+            f"{p['crew_elo']:.1f}" if crew_games > 0 else "-",
+            6, 26
         )
 
         won_col = format_with_roles(

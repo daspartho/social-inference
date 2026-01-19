@@ -270,12 +270,7 @@ def calculate_derived_stats(players: dict[str, dict]) -> dict[str, dict]:
         }
 
         r = results[name]
-        if imp_games > 0 and crew_games > 0:
-            r["overall_elo"] = round((s["impostor_elo"] + s["crew_elo"]) / 2, 1)
-        elif imp_games > 0:
-            r["overall_elo"] = r["impostor_elo"]
-        elif crew_games > 0:
-            r["overall_elo"] = r["crew_elo"]
+        r["overall_elo"] = round((r["impostor_elo"] + r["crew_elo"]) / 2, 1)
 
     return results
 

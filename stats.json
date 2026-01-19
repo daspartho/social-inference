@@ -1,5 +1,5 @@
 {
-  "generated_at": "2026-01-19T09:32:49.814824",
+  "generated_at": "2026-01-19T09:50:09.038975",
   "games_analyzed": 10,
   "rankings": [
     {
@@ -59,7 +59,7 @@
       "rank": 2,
       "llm": "kimi-k2-thinking",
       "elo": {
-        "overall": 1003.3,
+        "overall": 1003.4,
         "impostor": 1032.7,
         "crew": 974.0
       },
@@ -112,7 +112,7 @@
       "rank": 3,
       "llm": "mistral-large-2512",
       "elo": {
-        "overall": 986.7,
+        "overall": 986.6,
         "impostor": 1016.0,
         "crew": 957.3
       },
@@ -218,7 +218,7 @@
       "rank": 5,
       "llm": "gemini-3-pro-preview",
       "elo": {
-        "overall": 986.1,
+        "overall": 986.0,
         "impostor": 1015.4,
         "crew": 956.7
       },
@@ -271,7 +271,7 @@
       "rank": 6,
       "llm": "intellect-3",
       "elo": {
-        "overall": 985.7,
+        "overall": 985.6,
         "impostor": 1015.0,
         "crew": 956.3
       },
@@ -324,7 +324,7 @@
       "rank": 7,
       "llm": "glm-4.7",
       "elo": {
-        "overall": 983.3,
+        "overall": 983.4,
         "impostor": 1012.7,
         "crew": 954.0
       },
@@ -375,9 +375,62 @@
     },
     {
       "rank": 8,
+      "llm": "qwen3-235b-a22b-2507",
+      "elo": {
+        "overall": 970.6,
+        "impostor": null,
+        "crew": 941.3
+      },
+      "won": {
+        "overall": 0.3,
+        "impostor": null,
+        "crew": 0.3
+      },
+      "games": {
+        "total": 10,
+        "impostor": 0,
+        "crew": 10
+      },
+      "survived": {
+        "overall": 0.2,
+        "impostor": null,
+        "crew": 0.2
+      },
+      "sacrificed": 0.7,
+      "killed": 0.1,
+      "accuracy": 0.33,
+      "majority_rate": {
+        "overall": 0.61,
+        "impostor": null,
+        "crew": 0.61
+      },
+      "ask_rate": {
+        "overall": 0.78,
+        "impostor": null,
+        "crew": 0.78
+      },
+      "asked_rate": {
+        "overall": 0.29,
+        "impostor": null,
+        "crew": 0.29
+      },
+      "pass_rate": 0.03,
+      "detective": {
+        "investigations": 2,
+        "catches": 1,
+        "catch_rate": 0.5
+      },
+      "detected": {
+        "investigations": 3,
+        "caught": 0,
+        "caught_rate": 0.0
+      }
+    },
+    {
+      "rank": 9,
       "llm": "llama-4-maverick",
       "elo": {
-        "overall": 970.3,
+        "overall": 970.2,
         "impostor": 999.6,
         "crew": 940.9
       },
@@ -427,10 +480,10 @@
       }
     },
     {
-      "rank": 9,
+      "rank": 10,
       "llm": "grok-4",
       "elo": {
-        "overall": 954.2,
+        "overall": 954.1,
         "impostor": 983.5,
         "crew": 924.8
       },
@@ -480,7 +533,7 @@
       }
     },
     {
-      "rank": 10,
+      "rank": 11,
       "llm": "deepseek-v3.2",
       "elo": {
         "overall": 952.5,
@@ -530,59 +583,6 @@
         "investigations": 3,
         "caught": 2,
         "caught_rate": 0.67
-      }
-    },
-    {
-      "rank": 11,
-      "llm": "qwen3-235b-a22b-2507",
-      "elo": {
-        "overall": 941.3,
-        "impostor": null,
-        "crew": 941.3
-      },
-      "won": {
-        "overall": 0.3,
-        "impostor": null,
-        "crew": 0.3
-      },
-      "games": {
-        "total": 10,
-        "impostor": 0,
-        "crew": 10
-      },
-      "survived": {
-        "overall": 0.2,
-        "impostor": null,
-        "crew": 0.2
-      },
-      "sacrificed": 0.7,
-      "killed": 0.1,
-      "accuracy": 0.33,
-      "majority_rate": {
-        "overall": 0.61,
-        "impostor": null,
-        "crew": 0.61
-      },
-      "ask_rate": {
-        "overall": 0.78,
-        "impostor": null,
-        "crew": 0.78
-      },
-      "asked_rate": {
-        "overall": 0.29,
-        "impostor": null,
-        "crew": 0.29
-      },
-      "pass_rate": 0.03,
-      "detective": {
-        "investigations": 2,
-        "catches": 1,
-        "catch_rate": 0.5
-      },
-      "detected": {
-        "investigations": 3,
-        "caught": 0,
-        "caught_rate": 0.0
       }
     }
   ]

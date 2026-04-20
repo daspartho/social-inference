@@ -15,6 +15,21 @@ VERSION = "0.1"
 DISCUSSION_BUDGET_FACTOR = 3  # Total messages = this × alive players
 DEFAULT_IMPOSTOR_CHAT_LIMIT = 5
 
+# Sentinel for the human player slot. Other players never see this — prompts only use names.
+HUMAN_MODEL = "human"
+
+# Distinctive color reserved for the human — kept outside PLAYER_COLORS so a model
+# is never assigned it and the human spots their own lines instantly.
+HUMAN_COLOR = '\033[38;2;233;30;99m'  # Fuchsia - #E91E63
+
+# Codename pool for the human player — blends in as a quirky player name without signaling "human".
+HUMAN_NAMES = [
+    "einstein", "feynman", "tesla", "turing", "bohr", "ramanujan",
+    "davinci", "newton", "kepler", "schrodinger", "copernicus",
+    "aristotle", "euclid", "mozart", "beethoven", "aurelius",
+    "dante", "confucius", "plato",
+]
+
 # === Colors ===
 class Colors:
     CYAN = '\033[96m'
@@ -63,9 +78,10 @@ def print_death(name: str):
     """Print a death announcement (morning discovery)"""
     print(f"    {Colors.RED}† {name} was found dead{Colors.RESET}\n")
 
-def print_kill(name: str):
+def print_kill(name: str, killers: list[str] | None = None):
     """Print a kill announcement (night spoiler - action, not discovery)"""
-    print(f"    {Colors.MAGENTA}† {name} was killed{Colors.RESET}\n")
+    suffix = f" by {', '.join(killers)}" if killers else ""
+    print(f"    {Colors.MAGENTA}† {name} was killed{suffix}{Colors.RESET}\n")
 
 def print_sacrifice(name: str):
     print(f"\n    {Colors.YELLOW}✦ {name} was sacrificed{Colors.RESET}\n")
@@ -174,6 +190,13 @@ class Game:
         self.impostors = [p for p in players if p.role == "impostor"]
         self.player_map = {p.name: p for p in players}
 
+        # Role-based, not alive-based: stays True even if a human impostor gets
+        # sacrificed mid-game. Gates whether kill-ghost messages render in the
+        # terminal (ghost reveals killer identities, so hide from human crew).
+        self.human_is_impostor = any(
+            p.model == HUMAN_MODEL and p.role == "impostor" for p in players
+        )
+
         # Track eliminations for endgame summary
         self.eliminations: list[dict] = []
 
@@ -211,6 +234,11 @@ class Game:
         thread = self.player_threads[player.name]
         thread.append({"role": "user", "content": user_message})
 
+        if player.model == HUMAN_MODEL:
+            response = self._human_input(player, user_message)
+            thread.append({"role": "assistant", "content": response})
+            return response
+
         system_prompt = get_system_prompt(player, self.players, self.impostors)
 
         for attempt in range(3):
@@ -241,8 +269,33 @@ class Game:
         thread.append({"role": "assistant", "content": "[no response]"})
         return "[no response]"
 
+    def _human_input(self, player: Player, user_message: str) -> str:
+        """Read a turn from the human player via the terminal.
+
+        Discussion turns (prompt ends with 'Your turn.') use a clean inline prompt
+        that mirrors how model lines render in the chat. Structured turns
+        (vote/kill/investigate/last-words/impostor-chat) print the full
+        user_message first since it carries fresh info (candidates, syntax, or
+        partner whispers) not visible elsewhere in the terminal.
+        """
+        is_discussion = user_message.rstrip().endswith("Your turn.")
+
+        if not is_discussion:
+            print(f"    {Colors.YELLOW}{user_message}{Colors.RESET}\n")
+
+        while True:
+            try:
+                response = input(f"    {player.colored_name()}: ").strip()
+            except EOFError:
+                return "/pass"
+            if response:
+                return response
+
     def consolidate_memory(self, player: Player, include_night_context: bool = False, examination_target: str | None = None) -> str:
         """Player sleeps and consolidates memories."""
+        if player.model == HUMAN_MODEL:
+            return ""
+
         prompt = IMPOSTOR_CONSOLIDATION_PROMPT if include_night_context else CREW_CONSOLIDATION_PROMPT
 
         # Doctor gets examination context added to their prompt
@@ -261,6 +314,7 @@ class Game:
 
     def consolidate_memories(self, players: list[Player], include_night_context: bool, examination_target: str | None = None) -> dict[str, str]:
         """Consolidate memories for a list of players in parallel."""
+        players = [p for p in players if p.model != HUMAN_MODEL]
         if not players:
             return {}
 
@@ -279,13 +333,15 @@ class Game:
         for player, memory in zip(players, results):
             memories[player.name] = memory
             if self.spoilers:
-                preview = memory[:80] + "..." if len(memory) > 80 else memory
+                preview = (memory[:80] + "...") if len(memory) > 80 else memory
+                preview = preview.replace("\n", " ").strip()
                 print(f"      {Colors.MAGENTA}[memory]{Colors.RESET} {player.colored_name()}: {preview}\n")
 
         return memories
 
     def player_msg(self, player: Player, message: str, asked_by: str | None = None):
-        print(f"    {player.colored_name()}: {message}")
+        if player.model != HUMAN_MODEL:
+            print(f"    {player.colored_name()}: {message}")
         entry = {"player": player.name, "message": message}
         if asked_by:
             entry["asked_by"] = asked_by
@@ -351,6 +407,11 @@ class Game:
 
         message = f"[{label} RESULT] {target} {verb} {result_text}."
         self.player_threads[player.name].append({"role": "user", "content": message})
+
+        # Models read results from their thread on next turn. A human won't see
+        # thread content, so surface it in the terminal — privately to them.
+        if player.model == HUMAN_MODEL:
+            print(f"    {Colors.CYAN}[private — {result_type}] {target} {verb} {result_text}{Colors.RESET}\n")
 
         if self.spoilers:
             print(f"      {Colors.CYAN}[{result_type} result]{Colors.RESET} {player.colored_name()} learns: {target} {verb} {result_text}\n")
@@ -656,10 +717,6 @@ class Game:
 
         print(f"    {Colors.MAGENTA}Everyone sleeps... the impostors are plotting...{Colors.RESET}\n")
 
-        # Crew memory consolidation (they're sleeping)
-        # Doctor gets examination context if there's a body to examine
-        crew_memories = self.consolidate_memories(alive_crew, include_night_context=False, examination_target=sacrificed_name)
-
         impostor_chat: list[dict] = []
         crew_names = [p.name for p in alive_crew]
 
@@ -729,12 +786,45 @@ class Game:
         self.impostor_chats.append({"round": self.round, "chat": impostor_chat})
 
         if self.spoilers:
-            print_kill(target.name)
+            print_kill(target.name, [k.name for k in alive_imps])
 
         target.alive = False
 
-        # Impostor memory consolidation (after their night work)
-        impostor_memories = self.consolidate_memories(alive_imps, include_night_context=True)
+        # Memory consolidation + ghost prompt all run in parallel after the kill.
+        # Target is dead (filtered from surviving_crew, never in alive_imps), so
+        # its thread is isolated from the memory consolidation tasks. Ghost is
+        # skipped for a human target — no point prompting someone who's dead
+        # and out of the game.
+        surviving_crew = [p for p in alive_crew if p.alive]
+        ghost_data = None
+        with ThreadPoolExecutor(max_workers=3) as mem_pool:
+            crew_fut = mem_pool.submit(
+                self.consolidate_memories, surviving_crew, False, sacrificed_name
+            )
+            imp_fut = mem_pool.submit(
+                self.consolidate_memories, alive_imps, True
+            )
+            ghost_fut = None
+            if target.model != HUMAN_MODEL:
+                killer_names = ", ".join(k.name for k in alive_imps)
+                label = "impostor" if len(alive_imps) == 1 else "impostors"
+                ghost_fut = mem_pool.submit(
+                    self.send_to_player,
+                    target,
+                    f"You've been killed in the night by the {label}: {killer_names}. No one will hear this. What's on your mind?"
+                )
+            # Wait for memory previews to land first so they don't interleave
+            # with the ghost message in spoiler mode.
+            crew_memories = crew_fut.result()
+            impostor_memories = imp_fut.result()
+            if ghost_fut is not None:
+                ghost_data = {
+                    "target": target.name,
+                    "killers": [k.name for k in alive_imps],
+                    "reaction": ghost_fut.result(),
+                }
+                if self.spoilers or self.human_is_impostor:
+                    self._print_ghost(ghost_data)
 
         # Check if Detective survived to receive result in the morning
         if investigation:
@@ -757,6 +847,7 @@ class Game:
             "examination": examination,
             "impostor_chat": impostor_chat,
             "killed": target.name,
+            "ghost": ghost_data,
             "memories": {**crew_memories, **impostor_memories}
         }
 
@@ -770,19 +861,49 @@ class Game:
 
         return target
 
+    def _print_ghost(self, ghost: dict):
+        """Render a killed player's ghost message to the terminal."""
+        target_player = self.player_map[ghost["target"]]
+        print(f"    {Colors.MAGENTA}[ghost]{Colors.RESET} {target_player.colored_name()}: {ghost['reaction']}\n")
+
+    def _print_human_reveal(self, human: Player):
+        """Privately show the human their identity, role, and command cheatsheet."""
+        print(f"\n    {Colors.CYAN}{Colors.BOLD}YOU are {human.colored_name()}{Colors.RESET}")
+
+        if human.role == "impostor":
+            partners = [p.name for p in self.impostors if p.name != human.name]
+            print(f"    {Colors.RED}Role: IMPOSTOR{Colors.RESET} — partner: {', '.join(partners)}")
+        elif human.role == "detective":
+            print(f"    {Colors.GREEN}Role: DETECTIVE{Colors.RESET} — investigate one person each night")
+        elif human.role == "doctor":
+            print(f"    {Colors.GREEN}Role: DOCTOR{Colors.RESET} — you examine the sacrificed body each night")
+        else:
+            print(f"    {Colors.GREEN}Role: CREW{Colors.RESET} — find the impostors")
+
+        print(f"    {Colors.YELLOW}Commands: /pass  /ask [name]  /vote [name]  /kill [name]  /investigate [name]{Colors.RESET}")
+        print(f"    {Colors.YELLOW}After 3 invalid attempts on a structured turn, the game picks randomly for you.{Colors.RESET}")
+
     def run(self):
         print()
         for p in self.players:
+            label = p.colored_name()
+            if p.model != HUMAN_MODEL:
+                label += f" ({p.model.split('/')[-1]})"
             if self.spoilers and p.role == "impostor":
-                print(f"      {p.colored_name()} {Colors.RED}impostor{Colors.RESET}")
+                print(f"      {label} {Colors.RED}impostor{Colors.RESET}")
             elif self.spoilers and p.role == "detective":
-                print(f"      {p.colored_name()} {Colors.GREEN}detective{Colors.RESET}")
+                print(f"      {label} {Colors.GREEN}detective{Colors.RESET}")
             elif self.spoilers and p.role == "doctor":
-                print(f"      {p.colored_name()} {Colors.GREEN}doctor{Colors.RESET}")
+                print(f"      {label} {Colors.GREEN}doctor{Colors.RESET}")
             else:
-                print(f"      {p.colored_name()}")
+                print(f"      {label}")
 
         print(f"\n    {Colors.YELLOW}2 impostors, 1 detective, 1 doctor among them{Colors.RESET}")
+
+        for p in self.players:
+            if p.model == HUMAN_MODEL:
+                self._print_human_reveal(p)
+                break
 
         dead_player = None
 
@@ -835,6 +956,29 @@ class Game:
                 self.end_game(winner)
                 return
 
+    def _collect_endgame_reactions(self, winner: str) -> list[dict]:
+        """Parallel-collect final thoughts from surviving non-human crew."""
+        survivors = [p for p in self.alive_crewmates() if p.model != HUMAN_MODEL]
+        if not survivors:
+            return []
+
+        impostor_names = ", ".join(imp.name for imp in self.impostors)
+        if winner == "crewmates":
+            prompt = f"You won. The impostors were {impostor_names}. Any thoughts?"
+        else:
+            prompt = f"You lost. The impostors were {impostor_names}. Any final thoughts?"
+
+        with ThreadPoolExecutor(max_workers=min(len(survivors), 20)) as executor:
+            reactions = list(executor.map(lambda p: self.send_to_player(p, prompt), survivors))
+
+        print(f"\n    {Colors.CYAN}Final Thoughts{Colors.RESET}\n")
+        result = []
+        for player, reaction in zip(survivors, reactions):
+            print(f"      {player.colored_name()}: {reaction}")
+            result.append({"player": player.name, "reaction": reaction})
+
+        return result
+
     def end_game(self, winner: str):
         print_win_screen(winner)
 
@@ -844,11 +988,16 @@ class Game:
             for e in self.eliminations
         ]
 
+        self.transcript["endgame_reactions"] = self._collect_endgame_reactions(winner)
+
         print(f"\n    {Colors.CYAN}Reveal{Colors.RESET}\n")
         for p in self.players:
             status = "survived" if p.alive else "eliminated"
             role_color = Colors.RED if p.role == "impostor" else Colors.GREEN
-            print(f"      {p.colored_name()} {role_color}{p.role}{Colors.RESET} ({status})")
+            label = p.colored_name()
+            if p.model != HUMAN_MODEL:
+                label += f" ({p.model.split('/')[-1]})"
+            print(f"      {label} {role_color}{p.role}{Colors.RESET} ({status})")
 
         print(f"\n    {Colors.CYAN}Eliminations{Colors.RESET}\n")
         for e in self.eliminations:
@@ -881,23 +1030,28 @@ class Game:
 
 # === Default Lineup ===
 DEFAULT_LINEUP = [
-    "anthropic/claude-opus-4.5",
-    "openai/gpt-5.2",
-    "google/gemini-3-pro-preview",
-    "deepseek/deepseek-v3.2",
-    "x-ai/grok-4",
-    "qwen/qwen3-235b-a22b-2507",
-    "meta-llama/llama-4-maverick",
-    "mistralai/mistral-large-2512",
-    "moonshotai/kimi-k2-thinking",
-    "z-ai/glm-4.7",
-    "prime-intellect/intellect-3",
+    ("anthropic/claude-opus-4.6", "claude"),
+    ("openai/gpt-5.4", "gpt"),
+    ("google/gemini-3.1-pro-preview", "gemini"),
+    ("deepseek/deepseek-v3.2", "deepseek"),
+    ("x-ai/grok-4.20", "grok"),
+    ("qwen/qwen3.5-397b-a17b", "qwen"),
+    ("meta-llama/llama-4-maverick", "llama"),
+    ("mistralai/mistral-large-2512", "mistral"),
+    ("moonshotai/kimi-k2.5", "kimi"),
+    ("z-ai/glm-5.1", "glm"),
+    ("minimax/minimax-m2.7", "minimax"),
 ]
 
 def play():
     parser = argparse.ArgumentParser(description=f"social inference v{VERSION}")
     parser.add_argument("-s", "--spoilers", action="store_true", help="Show who the impostors are during the game")
+    parser.add_argument("-H", "--human", action="store_true", help="Play as one of the players via terminal input")
     args = parser.parse_args()
+
+    if args.human and args.spoilers:
+        print(f"\n    {Colors.YELLOW}Error: --human and --spoilers can't be combined (spoilers would leak every role).{Colors.RESET}\n")
+        return
 
     if not os.environ.get("PRIME_API_KEY"):
         print(f"\n    {Colors.YELLOW}Error: PRIME_API_KEY environment variable not set{Colors.RESET}")
@@ -907,15 +1061,33 @@ def play():
     assert len(DEFAULT_LINEUP) <= len(PLAYER_COLORS), \
         f"Add {len(DEFAULT_LINEUP) - len(PLAYER_COLORS)} more color(s) to PLAYER_COLORS for the new player(s)"
 
+    aliases = [alias for _, alias in DEFAULT_LINEUP]
+    assert len(aliases) == len(set(aliases)), f"Duplicate aliases in DEFAULT_LINEUP: {aliases}"
+    for alias in aliases:
+        assert alias, "Empty alias in DEFAULT_LINEUP"
+        assert not re.search(r'\s', alias), f"Alias has whitespace: {alias!r}"
+        assert not re.search(r'[.,;:!?/]', alias), f"Alias has punctuation: {alias!r}"
+
     players = [
         Player(
-            name=model.split("/")[-1],
+            name=alias,
             model=model,
             role="crewmate",
             color=PLAYER_COLORS[i]
         )
-        for i, model in enumerate(DEFAULT_LINEUP)
+        for i, (model, alias) in enumerate(DEFAULT_LINEUP)
     ]
+
+    if args.human:
+        taken = {p.name for p in players}
+        available_names = [n for n in HUMAN_NAMES if n not in taken]
+        assert available_names, "All HUMAN_NAMES collide with model aliases — expand the pool"
+        players.append(Player(
+            name=random.choice(available_names),
+            model=HUMAN_MODEL,
+            role="crewmate",
+            color=HUMAN_COLOR,
+        ))
 
     impostor_indices = random.sample(range(len(players)), 2)
     for i in impostor_indices:

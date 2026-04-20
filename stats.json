@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-01-19T10:44:24.557576",
-  "games_analyzed": 15,
+  "generated_at": "2026-04-20T11:57:04.366961",
+  "games_analyzed": 17,
   "rankings": [
     {
       "rank": 1,
@@ -110,6 +110,377 @@
     },
     {
       "rank": 3,
+      "llm": "minimax-m2.5",
+      "elo": {
+        "overall": 1008.5,
+        "impostor": null,
+        "crew": 1016.9
+      },
+      "won": {
+        "overall": 1.0,
+        "impostor": null,
+        "crew": 1.0
+      },
+      "games": {
+        "total": 1,
+        "impostor": 0,
+        "crew": 1
+      },
+      "survived": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "sacrificed": 0.0,
+      "killed": 1.0,
+      "accuracy": 1.0,
+      "majority_rate": {
+        "overall": 1.0,
+        "impostor": null,
+        "crew": 1.0
+      },
+      "ask_rate": {
+        "overall": 0.67,
+        "impostor": null,
+        "crew": 0.67
+      },
+      "asked_rate": {
+        "overall": 0.33,
+        "impostor": null,
+        "crew": 0.33
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 1,
+        "caught": 0,
+        "caught_rate": 0.0
+      }
+    },
+    {
+      "rank": 4,
+      "llm": "glm-5",
+      "elo": {
+        "overall": 1008.5,
+        "impostor": null,
+        "crew": 1016.9
+      },
+      "won": {
+        "overall": 1.0,
+        "impostor": null,
+        "crew": 1.0
+      },
+      "games": {
+        "total": 1,
+        "impostor": 0,
+        "crew": 1
+      },
+      "survived": {
+        "overall": 1.0,
+        "impostor": null,
+        "crew": 1.0
+      },
+      "sacrificed": 0.0,
+      "killed": 0.0,
+      "accuracy": 0.67,
+      "majority_rate": {
+        "overall": 1.0,
+        "impostor": null,
+        "crew": 1.0
+      },
+      "ask_rate": {
+        "overall": 0.17,
+        "impostor": null,
+        "crew": 0.17
+      },
+      "asked_rate": {
+        "overall": 0.17,
+        "impostor": null,
+        "crew": 0.17
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 5,
+      "llm": "human",
+      "elo": {
+        "overall": 1007.8,
+        "impostor": 1015.6,
+        "crew": null
+      },
+      "won": {
+        "overall": 1.0,
+        "impostor": 1.0,
+        "crew": null
+      },
+      "games": {
+        "total": 1,
+        "impostor": 1,
+        "crew": 0
+      },
+      "survived": {
+        "overall": 1.0,
+        "impostor": 1.0,
+        "crew": null
+      },
+      "sacrificed": 0.0,
+      "killed": null,
+      "accuracy": null,
+      "majority_rate": {
+        "overall": 1.0,
+        "impostor": 1.0,
+        "crew": null
+      },
+      "ask_rate": {
+        "overall": 0.07,
+        "impostor": 0.07,
+        "crew": null
+      },
+      "asked_rate": {
+        "overall": 0.0,
+        "impostor": 0.0,
+        "crew": null
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 6,
+      "llm": "claude-opus-4.6",
+      "elo": {
+        "overall": 1000.6,
+        "impostor": null,
+        "crew": 1001.3
+      },
+      "won": {
+        "overall": 0.5,
+        "impostor": null,
+        "crew": 0.5
+      },
+      "games": {
+        "total": 2,
+        "impostor": 0,
+        "crew": 2
+      },
+      "survived": {
+        "overall": 0.5,
+        "impostor": null,
+        "crew": 0.5
+      },
+      "sacrificed": 0.0,
+      "killed": 0.5,
+      "accuracy": 0.6,
+      "majority_rate": {
+        "overall": 1.0,
+        "impostor": null,
+        "crew": 1.0
+      },
+      "ask_rate": {
+        "overall": 0.06,
+        "impostor": null,
+        "crew": 0.06
+      },
+      "asked_rate": {
+        "overall": 0.33,
+        "impostor": null,
+        "crew": 0.33
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 2,
+        "catches": 1,
+        "catch_rate": 0.5
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 7,
+      "llm": "kimi-k2.5",
+      "elo": {
+        "overall": 1000.6,
+        "impostor": null,
+        "crew": 1001.3
+      },
+      "won": {
+        "overall": 0.5,
+        "impostor": null,
+        "crew": 0.5
+      },
+      "games": {
+        "total": 2,
+        "impostor": 0,
+        "crew": 2
+      },
+      "survived": {
+        "overall": 0.5,
+        "impostor": null,
+        "crew": 0.5
+      },
+      "sacrificed": 0.0,
+      "killed": 0.5,
+      "accuracy": 0.5,
+      "majority_rate": {
+        "overall": 0.5,
+        "impostor": null,
+        "crew": 0.5
+      },
+      "ask_rate": {
+        "overall": 0.17,
+        "impostor": null,
+        "crew": 0.17
+      },
+      "asked_rate": {
+        "overall": 0.25,
+        "impostor": null,
+        "crew": 0.25
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 8,
+      "llm": "gpt-5.4",
+      "elo": {
+        "overall": 1000.6,
+        "impostor": null,
+        "crew": 1001.3
+      },
+      "won": {
+        "overall": 0.5,
+        "impostor": null,
+        "crew": 0.5
+      },
+      "games": {
+        "total": 2,
+        "impostor": 0,
+        "crew": 2
+      },
+      "survived": {
+        "overall": 0.5,
+        "impostor": null,
+        "crew": 0.5
+      },
+      "sacrificed": 0.0,
+      "killed": 0.5,
+      "accuracy": 0.38,
+      "majority_rate": {
+        "overall": 1.0,
+        "impostor": null,
+        "crew": 1.0
+      },
+      "ask_rate": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "asked_rate": {
+        "overall": 0.05,
+        "impostor": null,
+        "crew": 0.05
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 9,
+      "llm": "mistral-large-2512",
+      "elo": {
+        "overall": 995.2,
+        "impostor": 1024.9,
+        "crew": 965.4
+      },
+      "won": {
+        "overall": 0.47,
+        "impostor": 0.75,
+        "crew": 0.38
+      },
+      "games": {
+        "total": 17,
+        "impostor": 4,
+        "crew": 13
+      },
+      "survived": {
+        "overall": 0.35,
+        "impostor": 0.25,
+        "crew": 0.38
+      },
+      "sacrificed": 0.41,
+      "killed": 0.31,
+      "accuracy": 0.33,
+      "majority_rate": {
+        "overall": 0.72,
+        "impostor": 0.47,
+        "crew": 0.82
+      },
+      "ask_rate": {
+        "overall": 0.73,
+        "impostor": 0.85,
+        "crew": 0.69
+      },
+      "asked_rate": {
+        "overall": 0.31,
+        "impostor": 0.35,
+        "crew": 0.29
+      },
+      "pass_rate": 0.06,
+      "detective": {
+        "investigations": 2,
+        "catches": 0,
+        "catch_rate": 0.0
+      },
+      "detected": {
+        "investigations": 4,
+        "caught": 2,
+        "caught_rate": 0.5
+      }
+    },
+    {
+      "rank": 10,
       "llm": "gemini-3-pro-preview",
       "elo": {
         "overall": 993.9,
@@ -162,7 +533,219 @@
       }
     },
     {
-      "rank": 4,
+      "rank": 11,
+      "llm": "glm-5.1",
+      "elo": {
+        "overall": 992.2,
+        "impostor": null,
+        "crew": 984.4
+      },
+      "won": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "games": {
+        "total": 1,
+        "impostor": 0,
+        "crew": 1
+      },
+      "survived": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "sacrificed": 1.0,
+      "killed": 0.0,
+      "accuracy": 0.2,
+      "majority_rate": {
+        "overall": 0.6,
+        "impostor": null,
+        "crew": 0.6
+      },
+      "ask_rate": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "asked_rate": {
+        "overall": 0.06,
+        "impostor": null,
+        "crew": 0.06
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 12,
+      "llm": "qwen3.5-397b-a17b",
+      "elo": {
+        "overall": 992.2,
+        "impostor": null,
+        "crew": 984.4
+      },
+      "won": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "games": {
+        "total": 1,
+        "impostor": 0,
+        "crew": 1
+      },
+      "survived": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "sacrificed": 0.0,
+      "killed": 1.0,
+      "accuracy": 0.25,
+      "majority_rate": {
+        "overall": 1.0,
+        "impostor": null,
+        "crew": 1.0
+      },
+      "ask_rate": {
+        "overall": 0.08,
+        "impostor": null,
+        "crew": 0.08
+      },
+      "asked_rate": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 13,
+      "llm": "grok-4.20",
+      "elo": {
+        "overall": 992.2,
+        "impostor": null,
+        "crew": 984.4
+      },
+      "won": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "games": {
+        "total": 1,
+        "impostor": 0,
+        "crew": 1
+      },
+      "survived": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "sacrificed": 1.0,
+      "killed": 0.0,
+      "accuracy": 0.5,
+      "majority_rate": {
+        "overall": 0.75,
+        "impostor": null,
+        "crew": 0.75
+      },
+      "ask_rate": {
+        "overall": 0.17,
+        "impostor": null,
+        "crew": 0.17
+      },
+      "asked_rate": {
+        "overall": 0.17,
+        "impostor": null,
+        "crew": 0.17
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 14,
+      "llm": "minimax-m2.7",
+      "elo": {
+        "overall": 992.2,
+        "impostor": null,
+        "crew": 984.4
+      },
+      "won": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "games": {
+        "total": 1,
+        "impostor": 0,
+        "crew": 1
+      },
+      "survived": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "sacrificed": 1.0,
+      "killed": 0.0,
+      "accuracy": 0.0,
+      "majority_rate": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "ask_rate": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "asked_rate": {
+        "overall": 0.0,
+        "impostor": null,
+        "crew": 0.0
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 15,
       "llm": "claude-opus-4.5",
       "elo": {
         "overall": 985.1,
@@ -215,7 +798,7 @@
       }
     },
     {
-      "rank": 5,
+      "rank": 16,
       "llm": "intellect-3",
       "elo": {
         "overall": 984.6,
@@ -268,45 +851,45 @@
       }
     },
     {
-      "rank": 6,
+      "rank": 17,
       "llm": "llama-4-maverick",
       "elo": {
-        "overall": 983.3,
+        "overall": 984.0,
         "impostor": 1013.7,
-        "crew": 952.9
+        "crew": 954.2
       },
       "won": {
-        "overall": 0.4,
+        "overall": 0.41,
         "impostor": 0.67,
-        "crew": 0.33
+        "crew": 0.36
       },
       "games": {
-        "total": 15,
+        "total": 17,
         "impostor": 3,
-        "crew": 12
+        "crew": 14
       },
       "survived": {
-        "overall": 0.33,
+        "overall": 0.35,
         "impostor": 0.33,
-        "crew": 0.33
+        "crew": 0.36
       },
-      "sacrificed": 0.6,
-      "killed": 0.08,
-      "accuracy": 0.24,
+      "sacrificed": 0.53,
+      "killed": 0.14,
+      "accuracy": 0.27,
       "majority_rate": {
-        "overall": 0.67,
+        "overall": 0.71,
         "impostor": 0.75,
-        "crew": 0.65
+        "crew": 0.7
       },
       "ask_rate": {
-        "overall": 0.69,
+        "overall": 0.7,
         "impostor": 0.54,
         "crew": 0.73
       },
       "asked_rate": {
-        "overall": 0.27,
+        "overall": 0.25,
         "impostor": 0.17,
-        "crew": 0.29
+        "crew": 0.26
       },
       "pass_rate": 0.06,
       "detective": {
@@ -321,7 +904,60 @@
       }
     },
     {
-      "rank": 7,
+      "rank": 18,
+      "llm": "gemini-3.1-pro-preview",
+      "elo": {
+        "overall": 983.8,
+        "impostor": 983.1,
+        "crew": 984.4
+      },
+      "won": {
+        "overall": 0.0,
+        "impostor": 0.0,
+        "crew": 0.0
+      },
+      "games": {
+        "total": 2,
+        "impostor": 1,
+        "crew": 1
+      },
+      "survived": {
+        "overall": 0.5,
+        "impostor": 0.0,
+        "crew": 1.0
+      },
+      "sacrificed": 0.5,
+      "killed": 0.0,
+      "accuracy": 0.4,
+      "majority_rate": {
+        "overall": 0.67,
+        "impostor": 0.0,
+        "crew": 0.8
+      },
+      "ask_rate": {
+        "overall": 0.0,
+        "impostor": 0.0,
+        "crew": 0.0
+      },
+      "asked_rate": {
+        "overall": 0.18,
+        "impostor": 0.67,
+        "crew": 0.07
+      },
+      "pass_rate": 0.0,
+      "detective": {
+        "investigations": 0,
+        "catches": 0,
+        "catch_rate": null
+      },
+      "detected": {
+        "investigations": 0,
+        "caught": 0,
+        "caught_rate": null
+      }
+    },
+    {
+      "rank": 19,
       "llm": "glm-4.7",
       "elo": {
         "overall": 982.3,
@@ -374,88 +1010,35 @@
       }
     },
     {
-      "rank": 8,
-      "llm": "mistral-large-2512",
-      "elo": {
-        "overall": 979.0,
-        "impostor": 1009.3,
-        "crew": 948.6
-      },
-      "won": {
-        "overall": 0.4,
-        "impostor": 0.67,
-        "crew": 0.33
-      },
-      "games": {
-        "total": 15,
-        "impostor": 3,
-        "crew": 12
-      },
-      "survived": {
-        "overall": 0.33,
-        "impostor": 0.33,
-        "crew": 0.33
-      },
-      "sacrificed": 0.4,
-      "killed": 0.33,
-      "accuracy": 0.3,
-      "majority_rate": {
-        "overall": 0.73,
-        "impostor": 0.54,
-        "crew": 0.81
-      },
-      "ask_rate": {
-        "overall": 0.73,
-        "impostor": 0.85,
-        "crew": 0.69
-      },
-      "asked_rate": {
-        "overall": 0.3,
-        "impostor": 0.39,
-        "crew": 0.27
-      },
-      "pass_rate": 0.07,
-      "detective": {
-        "investigations": 0,
-        "catches": 0,
-        "catch_rate": null
-      },
-      "detected": {
-        "investigations": 3,
-        "caught": 1,
-        "caught_rate": 0.33
-      }
-    },
-    {
-      "rank": 9,
+      "rank": 20,
       "llm": "grok-4",
       "elo": {
-        "overall": 953.1,
+        "overall": 961.5,
         "impostor": 983.5,
-        "crew": 922.8
+        "crew": 939.6
       },
       "won": {
-        "overall": 0.27,
+        "overall": 0.31,
         "impostor": 0.0,
-        "crew": 0.29
+        "crew": 0.33
       },
       "games": {
-        "total": 15,
+        "total": 16,
         "impostor": 1,
-        "crew": 14
+        "crew": 15
       },
       "survived": {
-        "overall": 0.2,
+        "overall": 0.19,
         "impostor": 0.0,
-        "crew": 0.21
+        "crew": 0.2
       },
-      "sacrificed": 0.33,
-      "killed": 0.5,
-      "accuracy": 0.27,
+      "sacrificed": 0.31,
+      "killed": 0.53,
+      "accuracy": 0.25,
       "majority_rate": {
-        "overall": 0.65,
+        "overall": 0.64,
         "impostor": 0.5,
-        "crew": 0.66
+        "crew": 0.65
       },
       "ask_rate": {
         "overall": 0.58,
@@ -463,9 +1046,9 @@
         "crew": 0.6
       },
       "asked_rate": {
-        "overall": 0.29,
+        "overall": 0.3,
         "impostor": 0.25,
-        "crew": 0.3
+        "crew": 0.31
       },
       "pass_rate": 0.0,
       "detective": {
@@ -474,49 +1057,49 @@
         "catch_rate": 1.0
       },
       "detected": {
-        "investigations": 3,
+        "investigations": 4,
         "caught": 0,
         "caught_rate": 0.0
       }
     },
     {
-      "rank": 10,
+      "rank": 21,
       "llm": "deepseek-v3.2",
       "elo": {
-        "overall": 951.5,
+        "overall": 952.1,
         "impostor": 981.8,
-        "crew": 921.1
+        "crew": 922.4
       },
       "won": {
-        "overall": 0.27,
+        "overall": 0.29,
         "impostor": 0.33,
-        "crew": 0.25
+        "crew": 0.29
       },
       "games": {
-        "total": 15,
+        "total": 17,
         "impostor": 3,
-        "crew": 12
+        "crew": 14
       },
       "survived": {
-        "overall": 0.13,
+        "overall": 0.12,
         "impostor": 0.0,
-        "crew": 0.17
+        "crew": 0.14
       },
-      "sacrificed": 0.6,
-      "killed": 0.33,
-      "accuracy": 0.2,
+      "sacrificed": 0.65,
+      "killed": 0.29,
+      "accuracy": 0.23,
       "majority_rate": {
-        "overall": 0.61,
+        "overall": 0.59,
         "impostor": 0.55,
-        "crew": 0.64
+        "crew": 0.61
       },
       "ask_rate": {
         "overall": 0.31,
         "impostor": 0.16,
-        "crew": 0.37
+        "crew": 0.36
       },
       "asked_rate": {
-        "overall": 0.44,
+        "overall": 0.43,
         "impostor": 0.51,
         "crew": 0.41
       },
@@ -527,50 +1110,50 @@
         "catch_rate": 0.0
       },
       "detected": {
-        "investigations": 3,
+        "investigations": 4,
         "caught": 2,
-        "caught_rate": 0.67
+        "caught_rate": 0.5
       }
     },
     {
-      "rank": 11,
+      "rank": 22,
       "llm": "qwen3-235b-a22b-2507",
       "elo": {
-        "overall": 950.4,
-        "impostor": 980.7,
+        "overall": 941.9,
+        "impostor": 963.8,
         "crew": 920.0
       },
       "won": {
-        "overall": 0.27,
+        "overall": 0.25,
         "impostor": 0.0,
         "crew": 0.29
       },
       "games": {
-        "total": 15,
-        "impostor": 1,
+        "total": 16,
+        "impostor": 2,
         "crew": 14
       },
       "survived": {
-        "overall": 0.13,
+        "overall": 0.12,
         "impostor": 0.0,
         "crew": 0.14
       },
-      "sacrificed": 0.8,
+      "sacrificed": 0.81,
       "killed": 0.07,
       "accuracy": 0.29,
       "majority_rate": {
-        "overall": 0.53,
-        "impostor": 0.0,
+        "overall": 0.51,
+        "impostor": 0.2,
         "crew": 0.56
       },
       "ask_rate": {
         "overall": 0.77,
-        "impostor": 0.6,
+        "impostor": 0.69,
         "crew": 0.78
       },
       "asked_rate": {
-        "overall": 0.42,
-        "impostor": 0.8,
+        "overall": 0.43,
+        "impostor": 0.69,
         "crew": 0.4
       },
       "pass_rate": 0.08,

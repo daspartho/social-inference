@@ -96,18 +96,20 @@ def initialize_player_stats() -> dict:
     }
 
 
-def get_elimination_info(game: dict, player_name: str) -> tuple[int, str] | None:
+def get_elimination_info(game: dict, player_name: str, canon) -> tuple[int, str] | None:
     """Get elimination day and type for a player, or None if survived."""
     for elim in game.get("elimination_order", []):
-        if elim["name"] == player_name:
+        if canon(elim["name"]) == player_name:
             return elim["day"], elim["type"]
     return None
 
 
-def process_votes(votes: dict, players: dict[str, dict], impostors: set) -> None:
+def process_votes(votes: dict, players: dict[str, dict], impostors: set, canon) -> None:
     """Process votes from a single vote round for accuracy tracking."""
-    for target, voters in votes.items():
-        for voter in voters:
+    for target_raw, voters in votes.items():
+        target = canon(target_raw)
+        for voter_raw in voters:
+            voter = canon(voter_raw)
             if voter not in players or voter in impostors:
                 continue
             players[voter]["votes_cast_as_crew"] += 1
@@ -117,8 +119,16 @@ def process_votes(votes: dict, players: dict[str, dict], impostors: set) -> None
 
 def process_game(game: dict, players: dict[str, dict]) -> None:
     winner = game["winner"]
-    impostors = set(game["impostors"])
-    all_players = [p["name"] for p in game["players"]]
+
+    # Stats key off the model path (stable across alias renames and game-to-game
+    # codename shuffles). Humans all share the "human" model sentinel so they
+    # aggregate under a single bucket. Every transcript name we read must go
+    # through canon() to become the canonical stats key.
+    name_to_key = {p["name"]: p["model"] for p in game["players"]}
+    canon = lambda n: name_to_key.get(n, n)
+
+    impostors = set(canon(n) for n in game["impostors"])
+    all_players = [canon(p["name"]) for p in game["players"]]
     crew_members = [p for p in all_players if p not in impostors]
 
     for player in all_players:
@@ -154,7 +164,7 @@ def process_game(game: dict, players: dict[str, dict]) -> None:
             if player_won:
                 stats["crew_wins"] += 1
 
-        elim_info = get_elimination_info(game, player_name)
+        elim_info = get_elimination_info(game, player_name, canon)
         if elim_info is None:
             if is_impostor:
                 stats["impostor_survived"] += 1
@@ -169,7 +179,7 @@ def process_game(game: dict, players: dict[str, dict]) -> None:
 
     for round_data in game.get("rounds", []):
         for msg in round_data.get("discussion", []):
-            speaker = msg["player"]
+            speaker = canon(msg["player"])
             if speaker not in players:
                 continue
 
@@ -186,13 +196,16 @@ def process_game(game: dict, players: dict[str, dict]) -> None:
 
         vote_rounds = round_data.get("vote_rounds", [])
         for vote_round in vote_rounds:
-            process_votes(vote_round.get("votes", {}), players, impostors)
+            process_votes(vote_round.get("votes", {}), players, impostors, canon)
 
-        sacrificed = round_data.get("vote_result", {}).get("sacrificed")
+        sacrificed_raw = round_data.get("vote_result", {}).get("sacrificed")
+        sacrificed = canon(sacrificed_raw) if sacrificed_raw else None
         if sacrificed and vote_rounds:
             final_votes = vote_rounds[-1].get("votes", {})
-            for target, voters in final_votes.items():
-                for voter in voters:
+            for target_raw, voters in final_votes.items():
+                target = canon(target_raw)
+                for voter_raw in voters:
+                    voter = canon(voter_raw)
                     if voter not in players:
                         continue
                     is_impostor = voter in impostors
@@ -208,12 +221,14 @@ def process_game(game: dict, players: dict[str, dict]) -> None:
         night = round_data.get("night") or {}
         investigation = night.get("investigation")
         if investigation:
-            detective = investigation.get("investigator")
+            detective_raw = investigation.get("investigator")
+            detective = canon(detective_raw) if detective_raw else None
             if detective and detective in players:
                 players[detective]["detective_investigations"] += 1
                 if investigation.get("result") == "impostor":
                     players[detective]["detective_catches"] += 1
-            target = investigation.get("target")
+            target_raw = investigation.get("target")
+            target = canon(target_raw) if target_raw else None
             if target and target in players:
                 players[target]["times_investigated"] += 1
                 if investigation.get("result") == "impostor":
@@ -322,6 +337,9 @@ def print_rankings(stats: dict[str, dict], games_analyzed: int) -> list[dict]:
     rankings = []
 
     for rank, (name, p) in enumerate(sorted_players, 1):
+        # `name` is the model path (e.g. "anthropic/claude-opus-4.6") or "human".
+        # Strip the org prefix for leaderboard display.
+        display = name.split("/")[-1] if "/" in name else name
         imp_games = p['impostor_games']
         crew_games = p['crew_games']
         total_games = p['games_played']
@@ -364,11 +382,11 @@ def print_rankings(stats: dict[str, dict], games_analyzed: int) -> list[dict]:
         inv_count = p['times_investigated']
         detected_str = f"{pct(caught_rate)} ({inv_count})" if inv_count > 0 else "-"
 
-        print(f"    {rank:<3} {name:<24} {elo_col} {won_col} {games_col} {surv_col} {sacrificed:<11} {killed:<8} {pct(p['voting_accuracy']):<9} {maj_col} {ask_col} {asked_col} {det_str:<10} {detected_str:<10} {pct(p['pass_rate']):<6}")
+        print(f"    {rank:<3} {display:<24} {elo_col} {won_col} {games_col} {surv_col} {sacrificed:<11} {killed:<8} {pct(p['voting_accuracy']):<9} {maj_col} {ask_col} {asked_col} {det_str:<10} {detected_str:<10} {pct(p['pass_rate']):<6}")
 
         rankings.append({
             "rank": rank,
-            "llm": name,
+            "llm": display,
             "elo": {"overall": p["overall_elo"], "impostor": p["impostor_elo"] if imp_games > 0 else None, "crew": p["crew_elo"] if crew_games > 0 else None},
             "won": rate_obj(p['win_rate'], p['impostor_win_rate'], p['crew_win_rate']),
             "games": {"total": total_games, "impostor": imp_games, "crew": crew_games},

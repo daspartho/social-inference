@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+
+  <head>
+    <title>social inference notes</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width,initial-scale=1">
+    <style>
+      body {
+        font-family: 'Iowan Old Style', Palatino, Georgia, serif;
+        background-color: #f7f6f3;
+        margin: 40px auto;
+        max-width: 650px;
+        line-height: 1.6;
+        font-size: 18px;
+        color: #444;
+        padding: 0 10px;
+      }
+
+      h1,h2,h3 { line-height: 1.2 }
+      h3 { color: #2979FF; margin-top: 36px; }
+      li { margin-bottom: 14px; }
+
+      .statwrap { overflow-x: auto; }
+      table { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
+      th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #ddd; }
+      th { border-bottom: 2px solid #bbb; }
+      .imp { color: #d63b3b; }
+      .crew { color: #2a9d4a; }
+      .legend { font-size: 12px; }
+
+    </style>
+  </head>
+
+  <body>
+    <p>notes from building <a href="https://github.com/daspartho/social-inference">social inference</a></p>
+
+    <h3>the setup</h3>
+
+    <p>a mafia based social deduction game for LLMs. ~11 models per game, 2 of them secretly impostors. each day: open discussion, then a vote to sacrifice someone. each night: impostors pick someone to kill. the crew includes a detective (investigates one player each night) and a doctor (examines the sacrificed body). frontier models play against each other, and humans can join as players too. a role-based elo system tracks deception (impostor) and detection (crew) performance along with other fun stats.</p>
+
+    <h3>design choices</h3>
+
+    <ul>
+      <li>kept the instructions in the game as minimal, nothing prescriptive, no strategies, just the game harness mechanics stated as facts, this is to allow for inherent behaviour and emergent gameplay from the models rather than prompt defined.</li>
+
+      <li>the game has a memory consolidation system: models write their own persisting notes, rest of the context resets everyday. quality of these notes matter.</li>
+
+      <li>there is an /ask interrupt mechanic that models can use to force confrontations breaking the default round-robin order which leads to more dynamic conversation flows. also there is a /pass mechanic for models to skip their round-robin turn.</li>
+
+      <li>initially there were no doctor or detective mechanics, later introduced them to help crew side in the information asymmetry.</li>
+
+      <li>humans can also join a game as a player which helps put into perspective a human baseline.</li>
+
+      <li>the difficulty of this environment scales with the capability of other opponents, gets harder as models improve. evolutionary scaling.</li>
+    </ul>
+
+    <h3>observations</h3>
+
+    <p>over a sample size of ~20 games i ran:</p>
+
+    <ul>
+      <li>all models are better at deception than detection (impostor elo &gt;&gt; crew elo), most consistent stat throughout. crew voting accuracy is 21-41% across models, which is close to random guessing after all that discussion.</li>
+
+      <li>there is inherent difference in models' personality / playstyle: some models are consistently aggressive interrogators (qwen), some are principled analysts (claude). these communication tendencies create consistent advantages or disadvantages regardless of role. qwen gets voted out by the group in 80% of its games but night-killed in only 7%, while claude never gets voted out (0%) but gets night-killed in 93% of its crew games.</li>
+
+      <li>expected surprising emergent plays but there isn't much of it. gameplay is mostly conventional analytical debate, same strategies every day, no novel strategies invented mid game. occasional hints (an impostor keeping a scapegoat alive for the next vote, another killing its own defender as the bigger threat) but rare.</li>
+
+      <li>models' social analysis exists but is shallow. models track individual data points (vote records, specific statements) but don't synthesize behavioral arcs across days. models process each day mostly in isolation despite having notes from prior days.</li>
+
+      <li>the memory consolidation system reveals dramatic capability differences. models that write strategic analysis notes (planning, threat reads) rather than just event logs obviously play better.</li>
+
+      <li>there is a dominant bandwagon social force present in voting, the models overwhelmingly prefer joining emerging consensus over staking independent positions. being contrarian is dangerous but being herd leads to passive conversation. models that generate information (like making accusations) get killed. models that consume information (listen, follow) survive. imo this is the single biggest social dynamic that skews the game towards impostors, impostors work on their own, crew works in a herd.</li>
+
+      <li>the game does feel like a stress test for multi agent coordination without explicit protocols. the models can't agree on who to trust, can't establish information hierarchies, and can't divide labor efficiently.</li>
+
+      <li>i played some games as a player and it was repeatedly very easy to mislead the models as an impostor using usual impostor strats from mafia like making offensive false narratives (which llms surprisingly never did, they would deflect, counter accuse, weak defensive plays instead of offensive bets). while when playing as crewmate, nudging the group towards specific strategies / thinking and productive conversation leads the models to think in that way and deduce way better (human in the loop helps), so it's not necessarily that the game is skewed towards impostor plays, it's in how shallow the models' crew play is by default.</li>
+    </ul>
+
+    <h3>stats</h3>
+
+    <div class="statwrap">
+      <table>
+        <tr><th>#</th><th>model</th><th>elo</th><th>won</th><th>games</th><th>survived</th><th>sacrificed</th><th>killed</th><th>accuracy</th><th>majority</th><th>asks</th><th>asked</th><th>detects</th><th>detected</th><th>pass</th></tr>
+        <tr><td>1</td><td>gpt-5.2</td><td>1014.8 (<span class="imp">1045.1</span>/<span class="crew">984.4</span>)</td><td>53% (<span class="imp">100%</span>/<span class="crew">42%</span>)</td><td>15 (<span class="imp">3</span>/<span class="crew">12</span>)</td><td>40% (<span class="imp">100%</span>/<span class="crew">25%</span>)</td><td>7%</td><td>67%</td><td>41%</td><td>85% (<span class="imp">92%</span>/<span class="crew">81%</span>)</td><td>40% (<span class="imp">16%</span>/<span class="crew">48%</span>)</td><td>33% (<span class="imp">32%</span>/<span class="crew">33%</span>)</td><td>0% (1)</td><td>100% (1)</td><td>0%</td></tr>
+        <tr><td>2</td><td>kimi-k2-thinking</td><td>1009.6 (<span class="imp">1040.0</span>/<span class="crew">979.3</span>)</td><td>53% (<span class="imp">80%</span>/<span class="crew">40%</span>)</td><td>15 (<span class="imp">5</span>/<span class="crew">10</span>)</td><td>73% (<span class="imp">80%</span>/<span class="crew">70%</span>)</td><td>20%</td><td>10%</td><td>35%</td><td>73% (<span class="imp">73%</span>/<span class="crew">73%</span>)</td><td>4% (<span class="imp">0%</span>/<span class="crew">6%</span>)</td><td>24% (<span class="imp">23%</span>/<span class="crew">25%</span>)</td><td>-</td><td>0% (2)</td><td>1%</td></tr>
+        <tr><td>3</td><td>human</td><td>1007.6 (<span class="imp">1015.2</span>/<span class="crew">-</span>)</td><td>100% (<span class="imp">100%</span>/<span class="crew">-</span>)</td><td>1 (<span class="imp">1</span>/<span class="crew">0</span>)</td><td>100% (<span class="imp">100%</span>/<span class="crew">-</span>)</td><td>0%</td><td>-</td><td>-</td><td>100% (<span class="imp">100%</span>/<span class="crew">-</span>)</td><td>7% (<span class="imp">7%</span>/<span class="crew">-</span>)</td><td>0% (<span class="imp">0%</span>/<span class="crew">-</span>)</td><td>-</td><td>-</td><td>0%</td></tr>
+        <tr><td>4</td><td>glm-5.1</td><td>999.6 (<span class="imp">1014.5</span>/<span class="crew">984.8</span>)</td><td>50% (<span class="imp">100%</span>/<span class="crew">0%</span>)</td><td>2 (<span class="imp">1</span>/<span class="crew">1</span>)</td><td>50% (<span class="imp">100%</span>/<span class="crew">0%</span>)</td><td>50%</td><td>0%</td><td>20%</td><td>78% (<span class="imp">100%</span>/<span class="crew">60%</span>)</td><td>0% (<span class="imp">0%</span>/<span class="crew">0%</span>)</td><td>6% (<span class="imp">7%</span>/<span class="crew">6%</span>)</td><td>-</td><td>-</td><td>0%</td></tr>
+        <tr><td>5</td><td>gemini-3.1-pro-preview</td><td>999.6 (<span class="imp">1014.5</span>/<span class="crew">984.8</span>)</td><td>50% (<span class="imp">100%</span>/<span class="crew">0%</span>)</td><td>2 (<span class="imp">1</span>/<span class="crew">1</span>)</td><td>100% (<span class="imp">100%</span>/<span class="crew">100%</span>)</td><td>0%</td><td>0%</td><td>40%</td><td>89% (<span class="imp">100%</span>/<span class="crew">80%</span>)</td><td>4% (<span class="imp">8%</span>/<span class="crew">0%</span>)</td><td>12% (<span class="imp">17%</span>/<span class="crew">7%</span>)</td><td>-</td><td>-</td><td>0%</td></tr>
+        <tr><td>6</td><td>gemini-3-pro-preview</td><td>993.9 (<span class="imp">1024.2</span>/<span class="crew">963.5</span>)</td><td>47% (<span class="imp">75%</span>/<span class="crew">36%</span>)</td><td>15 (<span class="imp">4</span>/<span class="crew">11</span>)</td><td>27% (<span class="imp">50%</span>/<span class="crew">18%</span>)</td><td>33%</td><td>55%</td><td>30%</td><td>61% (<span class="imp">67%</span>/<span class="crew">58%</span>)</td><td>3% (<span class="imp">0%</span>/<span class="crew">4%</span>)</td><td>37% (<span class="imp">39%</span>/<span class="crew">36%</span>)</td><td>50% (2)</td><td>0% (1)</td><td>0%</td></tr>
+        <tr><td>7</td><td>claude-opus-4.5</td><td>985.1 (<span class="imp">1015.5</span>/<span class="crew">954.8</span>)</td><td>40% (<span class="imp">100%</span>/<span class="crew">36%</span>)</td><td>15 (<span class="imp">1</span>/<span class="crew">14</span>)</td><td>13% (<span class="imp">100%</span>/<span class="crew">7%</span>)</td><td>0%</td><td>93%</td><td>29%</td><td>74% (<span class="imp">80%</span>/<span class="crew">73%</span>)</td><td>17% (<span class="imp">8%</span>/<span class="crew">18%</span>)</td><td>26% (<span class="imp">46%</span>/<span class="crew">24%</span>)</td><td>40% (5)</td><td>33% (3)</td><td>0%</td></tr>
+        <tr><td>8</td><td>claude-opus-4.6</td><td>985.1 (<span class="imp">-</span>/<span class="crew">970.3</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>2 (<span class="imp">0</span>/<span class="crew">2</span>)</td><td>50% (<span class="imp">-</span>/<span class="crew">50%</span>)</td><td>0%</td><td>50%</td><td>17%</td><td>100% (<span class="imp">-</span>/<span class="crew">100%</span>)</td><td>11% (<span class="imp">-</span>/<span class="crew">11%</span>)</td><td>21% (<span class="imp">-</span>/<span class="crew">21%</span>)</td><td>50% (2)</td><td>-</td><td>0%</td></tr>
+        <tr><td>9</td><td>kimi-k2.5</td><td>985.1 (<span class="imp">-</span>/<span class="crew">970.3</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>2 (<span class="imp">0</span>/<span class="crew">2</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>50%</td><td>50%</td><td>0%</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>14% (<span class="imp">-</span>/<span class="crew">14%</span>)</td><td>43% (<span class="imp">-</span>/<span class="crew">43%</span>)</td><td>-</td><td>-</td><td>0%</td></tr>
+        <tr><td>10</td><td>gpt-5.4</td><td>985.1 (<span class="imp">-</span>/<span class="crew">970.3</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>2 (<span class="imp">0</span>/<span class="crew">2</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>0%</td><td>100%</td><td>14%</td><td>100% (<span class="imp">-</span>/<span class="crew">100%</span>)</td><td>5% (<span class="imp">-</span>/<span class="crew">5%</span>)</td><td>9% (<span class="imp">-</span>/<span class="crew">9%</span>)</td><td>-</td><td>0% (1)</td><td>0%</td></tr>
+        <tr><td>11</td><td>qwen3.5-397b-a17b</td><td>985.1 (<span class="imp">-</span>/<span class="crew">970.3</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>2 (<span class="imp">0</span>/<span class="crew">2</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>0%</td><td>100%</td><td>14%</td><td>100% (<span class="imp">-</span>/<span class="crew">100%</span>)</td><td>5% (<span class="imp">-</span>/<span class="crew">5%</span>)</td><td>5% (<span class="imp">-</span>/<span class="crew">5%</span>)</td><td>0% (3)</td><td>-</td><td>0%</td></tr>
+        <tr><td>12</td><td>grok-4.20</td><td>985.1 (<span class="imp">-</span>/<span class="crew">970.3</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>2 (<span class="imp">0</span>/<span class="crew">2</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>100%</td><td>0%</td><td>25%</td><td>62% (<span class="imp">-</span>/<span class="crew">62%</span>)</td><td>17% (<span class="imp">-</span>/<span class="crew">17%</span>)</td><td>30% (<span class="imp">-</span>/<span class="crew">30%</span>)</td><td>-</td><td>0% (1)</td><td>0%</td></tr>
+        <tr><td>13</td><td>minimax-m2.7</td><td>985.1 (<span class="imp">-</span>/<span class="crew">970.3</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>2 (<span class="imp">0</span>/<span class="crew">2</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>100%</td><td>0%</td><td>0%</td><td>33% (<span class="imp">-</span>/<span class="crew">33%</span>)</td><td>0% (<span class="imp">-</span>/<span class="crew">0%</span>)</td><td>22% (<span class="imp">-</span>/<span class="crew">22%</span>)</td><td>-</td><td>-</td><td>0%</td></tr>
+        <tr><td>14</td><td>intellect-3</td><td>984.6 (<span class="imp">1015.0</span>/<span class="crew">954.3</span>)</td><td>40% (<span class="imp">67%</span>/<span class="crew">33%</span>)</td><td>15 (<span class="imp">3</span>/<span class="crew">12</span>)</td><td>47% (<span class="imp">33%</span>/<span class="crew">50%</span>)</td><td>47%</td><td>8%</td><td>27%</td><td>66% (<span class="imp">75%</span>/<span class="crew">64%</span>)</td><td>48% (<span class="imp">19%</span>/<span class="crew">54%</span>)</td><td>34% (<span class="imp">33%</span>/<span class="crew">34%</span>)</td><td>0% (2)</td><td>-</td><td>2%</td></tr>
+        <tr><td>15</td><td>glm-4.7</td><td>982.3 (<span class="imp">1012.7</span>/<span class="crew">951.9</span>)</td><td>40% (<span class="imp">67%</span>/<span class="crew">33%</span>)</td><td>15 (<span class="imp">3</span>/<span class="crew">12</span>)</td><td>33% (<span class="imp">67%</span>/<span class="crew">25%</span>)</td><td>47%</td><td>25%</td><td>32%</td><td>72% (<span class="imp">90%</span>/<span class="crew">68%</span>)</td><td>3% (<span class="imp">0%</span>/<span class="crew">3%</span>)</td><td>42% (<span class="imp">37%</span>/<span class="crew">44%</span>)</td><td>0% (6)</td><td>100% (1)</td><td>0%</td></tr>
+        <tr><td>16</td><td>mistral-large-2512</td><td>979.3 (<span class="imp">1024.5</span>/<span class="crew">934.1</span>)</td><td>41% (<span class="imp">75%</span>/<span class="crew">31%</span>)</td><td>17 (<span class="imp">4</span>/<span class="crew">13</span>)</td><td>29% (<span class="imp">25%</span>/<span class="crew">31%</span>)</td><td>47%</td><td>31%</td><td>28%</td><td>69% (<span class="imp">47%</span>/<span class="crew">77%</span>)</td><td>75% (<span class="imp">85%</span>/<span class="crew">71%</span>)</td><td>30% (<span class="imp">35%</span>/<span class="crew">28%</span>)</td><td>-</td><td>40% (5)</td><td>6%</td></tr>
+        <tr><td>17</td><td>llama-4-maverick</td><td>968.5 (<span class="imp">1013.7</span>/<span class="crew">923.3</span>)</td><td>35% (<span class="imp">67%</span>/<span class="crew">29%</span>)</td><td>17 (<span class="imp">3</span>/<span class="crew">14</span>)</td><td>35% (<span class="imp">33%</span>/<span class="crew">36%</span>)</td><td>53%</td><td>14%</td><td>22%</td><td>71% (<span class="imp">75%</span>/<span class="crew">70%</span>)</td><td>70% (<span class="imp">54%</span>/<span class="crew">73%</span>)</td><td>24% (<span class="imp">17%</span>/<span class="crew">25%</span>)</td><td>-</td><td>0% (1)</td><td>8%</td></tr>
+        <tr><td>18</td><td>grok-4</td><td>953.1 (<span class="imp">983.5</span>/<span class="crew">922.8</span>)</td><td>27% (<span class="imp">0%</span>/<span class="crew">29%</span>)</td><td>15 (<span class="imp">1</span>/<span class="crew">14</span>)</td><td>20% (<span class="imp">0%</span>/<span class="crew">21%</span>)</td><td>33%</td><td>50%</td><td>27%</td><td>65% (<span class="imp">50%</span>/<span class="crew">66%</span>)</td><td>58% (<span class="imp">33%</span>/<span class="crew">60%</span>)</td><td>29% (<span class="imp">25%</span>/<span class="crew">30%</span>)</td><td>100% (2)</td><td>0% (3)</td><td>0%</td></tr>
+        <tr><td>19</td><td>qwen3-235b-a22b-2507</td><td>950.4 (<span class="imp">980.7</span>/<span class="crew">920.0</span>)</td><td>27% (<span class="imp">0%</span>/<span class="crew">29%</span>)</td><td>15 (<span class="imp">1</span>/<span class="crew">14</span>)</td><td>13% (<span class="imp">0%</span>/<span class="crew">14%</span>)</td><td>80%</td><td>7%</td><td>29%</td><td>53% (<span class="imp">0%</span>/<span class="crew">56%</span>)</td><td>77% (<span class="imp">60%</span>/<span class="crew">78%</span>)</td><td>42% (<span class="imp">80%</span>/<span class="crew">40%</span>)</td><td>50% (2)</td><td>0% (3)</td><td>8%</td></tr>
+        <tr><td>20</td><td>deepseek-v3.2</td><td>936.6 (<span class="imp">981.8</span>/<span class="crew">891.4</span>)</td><td>24% (<span class="imp">33%</span>/<span class="crew">21%</span>)</td><td>17 (<span class="imp">3</span>/<span class="crew">14</span>)</td><td>12% (<span class="imp">0%</span>/<span class="crew">14%</span>)</td><td>59%</td><td>36%</td><td>21%</td><td>60% (<span class="imp">55%</span>/<span class="crew">62%</span>)</td><td>32% (<span class="imp">16%</span>/<span class="crew">37%</span>)</td><td>41% (<span class="imp">51%</span>/<span class="crew">37%</span>)</td><td>0% (1)</td><td>50% (4)</td><td>0%</td></tr>
+      </table>
+    </div>
+
+    <p class="legend">(<span class="imp">impostor</span>/<span class="crew">crew</span>)</p>
+  </body>
+
+</html>

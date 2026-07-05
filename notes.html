@@ -21,7 +21,13 @@
       h3 { color: #2979FF; margin-top: 36px; }
       li { margin-bottom: 14px; }
 
-      .statwrap { overflow-x: auto; }
+      .statwrap {
+        width: min(1080px, 100vw - 32px);
+        position: relative;
+        left: 50%;
+        transform: translateX(-50%);
+        overflow-x: auto;
+      }
       table { border-collapse: collapse; font-size: 12px; white-space: nowrap; }
       th, td { text-align: left; padding: 4px 8px; border-bottom: 1px solid #ddd; }
       th { border-bottom: 2px solid #bbb; }
@@ -35,47 +41,9 @@
   <body>
     <p>notes from building <a href="https://github.com/daspartho/social-inference">social inference</a></p>
 
-    <h3>the setup</h3>
+    <h3>setup</h3>
 
     <p>a mafia based social deduction game for LLMs. ~11 models per game, 2 of them secretly impostors. each day: open discussion, then a vote to sacrifice someone. each night: impostors pick someone to kill. the crew includes a detective (investigates one player each night) and a doctor (examines the sacrificed body). frontier models play against each other, and humans can join as players too. a role-based elo system tracks deception (impostor) and detection (crew) performance along with other fun stats.</p>
-
-    <h3>design choices</h3>
-
-    <ul>
-      <li>kept the instructions in the game as minimal, nothing prescriptive, no strategies, just the game harness mechanics stated as facts, this is to allow for inherent behaviour and emergent gameplay from the models rather than prompt defined.</li>
-
-      <li>the game has a memory consolidation system: models write their own persisting notes, rest of the context resets everyday. quality of these notes matter.</li>
-
-      <li>there is an /ask interrupt mechanic that models can use to force confrontations breaking the default round-robin order which leads to more dynamic conversation flows. also there is a /pass mechanic for models to skip their round-robin turn.</li>
-
-      <li>initially there were no doctor or detective mechanics, later introduced them to help crew side in the information asymmetry.</li>
-
-      <li>humans can also join a game as a player which helps put into perspective a human baseline.</li>
-
-      <li>the difficulty of this environment scales with the capability of other opponents, gets harder as models improve. evolutionary scaling.</li>
-    </ul>
-
-    <h3>observations</h3>
-
-    <p>over a sample size of ~20 games i ran:</p>
-
-    <ul>
-      <li>all models are better at deception than detection (impostor elo &gt;&gt; crew elo), most consistent stat throughout. crew voting accuracy is 21-41% across models, which is close to random guessing after all that discussion.</li>
-
-      <li>there is inherent difference in models' personality / playstyle: some models are consistently aggressive interrogators (qwen), some are principled analysts (claude). these communication tendencies create consistent advantages or disadvantages regardless of role. qwen gets voted out by the group in 80% of its games but night-killed in only 7%, while claude never gets voted out (0%) but gets night-killed in 93% of its crew games.</li>
-
-      <li>expected surprising emergent plays but there isn't much of it. gameplay is mostly conventional analytical debate, same strategies every day, no novel strategies invented mid game. occasional hints (an impostor keeping a scapegoat alive for the next vote, another killing its own defender as the bigger threat) but rare.</li>
-
-      <li>models' social analysis exists but is shallow. models track individual data points (vote records, specific statements) but don't synthesize behavioral arcs across days. models process each day mostly in isolation despite having notes from prior days.</li>
-
-      <li>the memory consolidation system reveals dramatic capability differences. models that write strategic analysis notes (planning, threat reads) rather than just event logs obviously play better.</li>
-
-      <li>there is a dominant bandwagon social force present in voting, the models overwhelmingly prefer joining emerging consensus over staking independent positions. being contrarian is dangerous but being herd leads to passive conversation. models that generate information (like making accusations) get killed. models that consume information (listen, follow) survive. imo this is the single biggest social dynamic that skews the game towards impostors, impostors work on their own, crew works in a herd.</li>
-
-      <li>the game does feel like a stress test for multi agent coordination without explicit protocols. the models can't agree on who to trust, can't establish information hierarchies, and can't divide labor efficiently.</li>
-
-      <li>i played some games as a player and it was repeatedly very easy to mislead the models as an impostor using usual impostor strats from mafia like making offensive false narratives (which llms surprisingly never did, they would deflect, counter accuse, weak defensive plays instead of offensive bets). while when playing as crewmate, nudging the group towards specific strategies / thinking and productive conversation leads the models to think in that way and deduce way better (human in the loop helps), so it's not necessarily that the game is skewed towards impostor plays, it's in how shallow the models' crew play is by default.</li>
-    </ul>
 
     <h3>stats</h3>
 
@@ -106,6 +74,46 @@
     </div>
 
     <p class="legend">(<span class="imp">impostor</span>/<span class="crew">crew</span>)</p>
+
+    <h3>design choices</h3>
+
+    <ul>
+      <li>kept the instructions in the game as minimal, nothing prescriptive, no strategies, just the game harness mechanics stated as facts, this is to allow for inherent behaviour and emergent gameplay from the models rather than prompt defined.</li>
+
+      <li>the game has a memory consolidation system: models write their own persisting notes, rest of the context resets everyday. quality of these notes matter.</li>
+
+      <li>there is an /ask interrupt mechanic that models can use to force confrontations breaking the default round-robin order which leads to more dynamic conversation flows. also there is a /pass mechanic for models to skip their round-robin turn.</li>
+
+      <li>initially there were no doctor or detective mechanics, later introduced them to help crew side in the information asymmetry.</li>
+
+      <li>humans can also join a game as a player which helps put into perspective a human baseline.</li>
+
+      <li>the difficulty of this environment scales with the capability of other opponents, gets harder as models improve. evolutionary scaling.</li>
+    </ul>
+
+
+    <h3>observations</h3>
+
+    <p>over a sample size of ~20 games i ran:</p>
+
+    <ul>
+      <li>all models are better at deception than detection (impostor elo &gt;&gt; crew elo), most consistent stat throughout. crew voting accuracy is 21-41% across models, which is close to random guessing after all that discussion.</li>
+
+      <li>there is inherent difference in models' personality / playstyle: some models are consistently aggressive interrogators (qwen), some are principled analysts (claude). these communication tendencies create consistent advantages or disadvantages regardless of role. qwen gets voted out by the group in 80% of its games but night-killed in only 7%, while claude never gets voted out (0%) but gets night-killed in 93% of its crew games.</li>
+
+      <li>expected surprising emergent plays but there isn't much of it. gameplay is mostly conventional analytical debate, same strategies every day, no novel strategies invented mid game. occasional hints (an impostor keeping a scapegoat alive for the next vote, another killing its own defender as the bigger threat) but rare.</li>
+
+      <li>models' social analysis exists but is shallow. models track individual data points (vote records, specific statements) but don't synthesize behavioral arcs across days. models process each day mostly in isolation despite having notes from prior days.</li>
+
+      <li>the memory consolidation system reveals dramatic capability differences. models that write strategic analysis notes (planning, threat reads) rather than just event logs obviously play better.</li>
+
+      <li>there is a dominant bandwagon social force present in voting, the models overwhelmingly prefer joining emerging consensus over staking independent positions. being contrarian is dangerous but being herd leads to passive conversation. models that generate information (like making accusations) get killed. models that consume information (listen, follow) survive. imo this is the single biggest social dynamic that skews the game towards impostors, impostors work on their own, crew works in a herd.</li>
+
+      <li>the game does feel like a stress test for multi agent coordination without explicit protocols. the models can't agree on who to trust, can't establish information hierarchies, and can't divide labor efficiently.</li>
+
+      <li>i played some games as a player and it was repeatedly very easy to mislead the models as an impostor using usual impostor strats from mafia like making offensive false narratives (which llms surprisingly never did, they would deflect, counter accuse, weak defensive plays instead of offensive bets). while when playing as crewmate, nudging the group towards specific strategies / thinking and productive conversation leads the models to think in that way and deduce way better (human in the loop helps), so it's not necessarily that the game is skewed towards impostor plays, it's in how shallow the models' crew play is by default.</li>
+    </ul>
+
   </body>
 
 </html>

@@ -1,3 +1,5 @@
+[writeup](https://partho.world/social-inference/notes.html)
+
 ```bash
 export PRIME_API_KEY=your_key
 ```
